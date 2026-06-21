@@ -270,23 +270,39 @@ function HeroIllustration() {
    DASHBOARD (logged-in approved users)
    ============================================================ */
 
-const mockRooms = [
-  { id: 1, title: "React for Beginners", category: "Programming", lang: "EN", participants: 24, cover: "from-blue-500 to-indigo-600" },
-  { id: 2, title: "Arabic Calligraphy", category: "Art", lang: "AR", participants: 18, cover: "from-amber-500 to-rose-500" },
-  { id: 3, title: "Marketing Digital", category: "Business", lang: "FR", participants: 32, cover: "from-emerald-500 to-teal-600" },
-  { id: 4, title: "Public Speaking Lab", category: "Soft skills", lang: "EN", participants: 12, cover: "from-violet-500 to-fuchsia-600" },
-];
+/* ============================================================
+   DASHBOARD (logged-in approved users)
+   ============================================================ */
 
-const mockMembers = [
-  { id: 1, name: "Yasmine El Amrani", title: "Frontend Developer", city: "Casablanca", skills: ["React", "TypeScript", "UI"] },
-  { id: 2, name: "Mehdi Tazi", title: "Senior Designer", city: "Rabat", skills: ["Figma", "UX", "Branding"] },
-  { id: 3, name: "Sara Bennani", title: "Product Manager", city: "Marrakech", skills: ["Strategy", "Agile"] },
-  { id: 4, name: "Omar Idrissi", title: "Data Scientist", city: "Tangier", skills: ["Python", "ML", "Stats"] },
-];
+interface MemberLite {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  professional_title: string | null;
+  city: string | null;
+  skills: string[] | null;
+  avatar_url: string | null;
+}
 
 function Dashboard() {
   const { profile, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const name = profile?.first_name ?? (isAdmin ? "Admin" : "there");
+  const [rooms, setRooms] = useState<DbRoom[] | null>(null);
+  const [members, setMembers] = useState<MemberLite[] | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    listActiveRooms().then(setRooms).catch(() => setRooms([]));
+    supabase
+      .from("profiles")
+      .select("id,first_name,last_name,professional_title,city,skills,avatar_url")
+      .eq("status", "approved")
+      .eq("profile_completed", true)
+      .order("created_at", { ascending: false })
+      .limit(8)
+      .then(({ data }) => setMembers((data ?? []) as MemberLite[]));
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -301,10 +317,10 @@ function Dashboard() {
                 <Sparkles className="mr-1.5 h-3 w-3" /> Welcome back
               </Badge>
               <h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
-                Ahlan, {name} 👋
+                Welcome, {name} 👋
               </h1>
               <p className="mt-2 max-w-xl text-muted-foreground">
-                Ready to learn or share something today? Browse trending rooms or jump back into your profile.
+                Ready to learn or share something today? Browse live rooms or start your own.
               </p>
               <div className="mt-5 flex max-w-xl items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-card focus-within:border-primary/50 focus-within:shadow-glow">
                 <Search className="h-4 w-4 text-muted-foreground" />
@@ -312,52 +328,89 @@ function Dashboard() {
                   placeholder="Search rooms, skills or members…"
                   className="h-9 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
                 />
-                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">⌘K</kbd>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 lg:gap-3">
-              <QuickAction icon={Compass} label="Browse rooms" to="/" />
-              <QuickAction icon={Plus} label="Create room" to="/" />
-              <QuickAction icon={UserCircle} label="Edit profile" to="/profile" />
+              <QuickActionButton icon={Compass} label="Browse rooms" onClick={() => window.scrollTo({ top: 600, behavior: "smooth" })} />
+              <QuickActionButton icon={Plus} label="Create room" onClick={() => setCreateOpen(true)} />
+              <QuickActionLink icon={UserCircle} label="View profile" to="/profile" />
             </div>
           </div>
         </section>
 
-        {/* Trending Rooms */}
+        {/* Live rooms */}
         <section className="mt-10">
-          <SectionHeader title="Trending rooms" subtitle="Active conversations happening right now" />
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {mockRooms.map((r) => <RoomCard key={r.id} room={r} />)}
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Live rooms</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Active voice conversations happening right now</p>
+            </div>
+            <Button onClick={() => setCreateOpen(true)} className="bg-gradient-primary">
+              <Plus className="mr-1.5 h-4 w-4" /> New room
+            </Button>
           </div>
+
+          {rooms === null ? (
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => <Card key={i} className="h-56 animate-pulse bg-muted/40" />)}
+            </div>
+          ) : rooms.length === 0 ? (
+            <EmptyState
+              icon={Mic}
+              title="No rooms available yet."
+              desc="Be the first to create a learning room and start sharing your knowledge."
+              cta={<Button onClick={() => setCreateOpen(true)} className="bg-gradient-primary"><Plus className="mr-1.5 h-4 w-4" /> Create the first room</Button>}
+            />
+          ) : (
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {rooms.map((r) => <RoomCard key={r.id} room={r} onJoin={() => navigate({ to: "/rooms/$roomId", params: { roomId: r.id } })} />)}
+            </div>
+          )}
         </section>
 
-        {/* Featured Members */}
+        {/* Members */}
         <section className="mt-12">
-          <SectionHeader title="Featured members" subtitle="Verified Moroccans worth knowing" />
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {mockMembers.map((m) => <MemberCard key={m.id} member={m} />)}
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Verified members</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Moroccans building together</p>
+            </div>
           </div>
+
+          {members === null ? (
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => <Card key={i} className="h-44 animate-pulse bg-muted/40" />)}
+            </div>
+          ) : members.length === 0 ? (
+            <EmptyState icon={Users} title="No members to display yet." desc="As soon as members complete and verify their profile, they'll appear here." />
+          ) : (
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {members.map((m) => <MemberCard key={m.id} member={m} />)}
+            </div>
+          )}
         </section>
       </main>
+
+      <CreateRoomModal open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function QuickActionButton({ icon: Icon, label, onClick }: { icon: React.ComponentType<{ className?: string }>; label: string; onClick: () => void }) {
   return (
-    <div className="flex items-end justify-between gap-4">
-      <div>
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
-      </div>
-      <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
-        See all <ArrowRight className="ml-1 h-3.5 w-3.5" />
-      </Button>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border bg-card p-3 text-center shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-elevated"
+    >
+      <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-gradient-primary group-hover:text-primary-foreground">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="text-xs font-semibold">{label}</span>
+    </button>
   );
 }
-
-function QuickAction({ icon: Icon, label, to }: { icon: React.ComponentType<{ className?: string }>; label: string; to: string }) {
+function QuickActionLink({ icon: Icon, label, to }: { icon: React.ComponentType<{ className?: string }>; label: string; to: string }) {
   return (
     <Link
       to={to}
@@ -371,24 +424,51 @@ function QuickAction({ icon: Icon, label, to }: { icon: React.ComponentType<{ cl
   );
 }
 
-function RoomCard({ room }: { room: typeof mockRooms[number] }) {
+function EmptyState({ icon: Icon, title, desc, cta }: { icon: React.ComponentType<{ className?: string }>; title: string; desc: string; cta?: React.ReactNode }) {
+  return (
+    <Card className="mt-5 flex flex-col items-center justify-center gap-3 px-6 py-14 text-center shadow-card">
+      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+        <Icon className="h-6 w-6" />
+      </div>
+      <h3 className="text-base font-bold">{title}</h3>
+      <p className="max-w-md text-sm text-muted-foreground">{desc}</p>
+      {cta && <div className="mt-2">{cta}</div>}
+    </Card>
+  );
+}
+
+function RoomCard({ room, onJoin }: { room: DbRoom; onJoin: () => void }) {
   return (
     <Card className="group overflow-hidden border-border shadow-card transition-all hover:-translate-y-1 hover:shadow-elevated">
-      <div className={`relative h-28 bg-gradient-to-br ${room.cover}`}>
+      <div className={`relative h-28 bg-gradient-to-br ${room.cover_gradient ?? "from-blue-500 to-indigo-600"}`}>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,white,transparent_60%)] opacity-30" />
-        <Badge className="absolute left-3 top-3 rounded-full bg-background/90 text-foreground hover:bg-background">
-          {room.category}
-        </Badge>
-        <Badge className="absolute right-3 top-3 rounded-full bg-background/90 text-foreground hover:bg-background">
-          <Globe className="mr-1 h-3 w-3" /> {room.lang}
-        </Badge>
+        {room.topic && (
+          <Badge className="absolute left-3 top-3 rounded-full bg-background/90 text-foreground hover:bg-background">
+            {room.topic}
+          </Badge>
+        )}
+        <div className="absolute right-3 top-3 flex gap-1">
+          {room.language && (
+            <Badge className="rounded-full bg-background/90 text-foreground hover:bg-background">
+              <Globe className="mr-1 h-3 w-3" /> {room.language}
+            </Badge>
+          )}
+          {room.is_private && (
+            <Badge className="rounded-full bg-background/90 text-foreground hover:bg-background">
+              <Lock className="h-3 w-3" />
+            </Badge>
+          )}
+        </div>
+        {room.status === "active" && (
+          <Badge className="absolute bottom-3 left-3 rounded-full bg-success/90 text-white hover:bg-success">
+            <Radio className="mr-1 h-3 w-3 animate-pulse" /> Live
+          </Badge>
+        )}
       </div>
       <div className="p-4">
         <h3 className="line-clamp-1 font-semibold">{room.title}</h3>
-        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Users className="h-3.5 w-3.5" /> {room.participants} active
-        </div>
-        <Button size="sm" className="mt-4 w-full rounded-lg">
+        {room.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{room.description}</p>}
+        <Button size="sm" className="mt-4 w-full rounded-lg" onClick={onJoin}>
           <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Join room
         </Button>
       </div>
@@ -396,31 +476,44 @@ function RoomCard({ room }: { room: typeof mockRooms[number] }) {
   );
 }
 
-function MemberCard({ member }: { member: typeof mockMembers[number] }) {
+function MemberCard({ member }: { member: MemberLite }) {
+  const [avatar, setAvatar] = useState<string | null>(null);
+  useEffect(() => {
+    if (!member.avatar_url) return;
+    supabase.storage.from("avatars").createSignedUrl(member.avatar_url, 60 * 60)
+      .then(({ data }) => setAvatar(data?.signedUrl ?? null));
+  }, [member.avatar_url]);
+  const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || "Member";
   return (
     <Card className="group p-5 shadow-card transition-all hover:-translate-y-1 hover:shadow-elevated">
       <div className="flex items-start gap-3">
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-primary text-base font-bold text-primary-foreground shadow-glow">
-          {member.name[0]}
-        </div>
+        {avatar ? (
+          <img src={avatar} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-border" />
+        ) : (
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-primary text-base font-bold text-primary-foreground shadow-glow">
+            {(member.first_name?.[0] ?? "M").toUpperCase()}
+          </div>
+        )}
         <div className="min-w-0">
-          <h3 className="truncate font-semibold">{member.name}</h3>
-          <p className="truncate text-xs text-muted-foreground">{member.title}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">📍 {member.city}</p>
+          <h3 className="truncate font-semibold">{name}</h3>
+          <p className="truncate text-xs text-muted-foreground">{member.professional_title ?? "Member"}</p>
+          {member.city && <p className="mt-0.5 text-[11px] text-muted-foreground">📍 {member.city}</p>}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1">
-        {member.skills.slice(0, 3).map((s) => (
+        {(member.skills ?? []).slice(0, 3).map((s) => (
           <Badge key={s} variant="secondary" className="rounded-full text-[10px]">{s}</Badge>
         ))}
       </div>
       <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" /> 4.9 · 12 reviews</span>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary">View profile</Button>
+        <span className="inline-flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" /> Verified</span>
+        <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary">
+          <Link to="/profile">View profile</Link>
+        </Button>
       </div>
     </Card>
   );
 }
 
-// Suppress unused warning for Trophy/GraduationCap kept for parity
-void Trophy; void GraduationCap;
+// Suppress unused warning
+void Trophy; void GraduationCap; void TrendingUp;
