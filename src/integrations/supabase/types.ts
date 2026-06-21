@@ -113,6 +113,101 @@ export type Database = {
         }
         Relationships: []
       }
+      room_participants: {
+        Row: {
+          hand_raised: boolean
+          id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["participant_role"]
+          room_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          hand_raised?: boolean
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["participant_role"]
+          room_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          hand_raised?: boolean
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["participant_role"]
+          room_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          cover_gradient: string | null
+          created_at: string
+          description: string | null
+          ended_at: string | null
+          host_id: string
+          id: string
+          is_private: boolean
+          language: string | null
+          livekit_room: string
+          max_participants: number
+          password: string | null
+          skill_level: string | null
+          status: Database["public"]["Enums"]["room_status"]
+          title: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          cover_gradient?: string | null
+          created_at?: string
+          description?: string | null
+          ended_at?: string | null
+          host_id: string
+          id?: string
+          is_private?: boolean
+          language?: string | null
+          livekit_room: string
+          max_participants?: number
+          password?: string | null
+          skill_level?: string | null
+          status?: Database["public"]["Enums"]["room_status"]
+          title: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cover_gradient?: string | null
+          created_at?: string
+          description?: string | null
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+          is_private?: boolean
+          language?: string | null
+          livekit_room?: string
+          max_participants?: number
+          password?: string | null
+          skill_level?: string | null
+          status?: Database["public"]["Enums"]["room_status"]
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -121,7 +216,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      participant_role: "host" | "speaker" | "listener"
       profile_status: "pending" | "approved" | "rejected"
+      room_status: "active" | "locked" | "ended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -249,7 +346,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      participant_role: ["host", "speaker", "listener"],
       profile_status: ["pending", "approved", "rejected"],
+      room_status: ["active", "locked", "ended"],
     },
   },
 } as const
