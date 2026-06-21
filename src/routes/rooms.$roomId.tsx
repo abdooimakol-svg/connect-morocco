@@ -429,7 +429,7 @@ function RoomPage() {
                 const pr = profiles[p.user_id];
                 return (
                   <div key={p.id} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-card">
-                    <Avatar profile={pr} size={8} />
+                    <Avatar profile={pr} size={32} />
                     <div className="text-sm">
                       <div className="font-semibold">{displayName(pr)}</div>
                       <div className="text-[10px] text-muted-foreground">{pr?.professional_title ?? "Listener"}</div>
@@ -461,7 +461,7 @@ function RoomPage() {
                       </Badge>
                     )}
                     <div className="relative mx-auto">
-                      <Avatar profile={pr} size={16} />
+                      <Avatar profile={pr} size={64} />
                       {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-white"><Volume2 className="h-3 w-3" /></span>}
                     </div>
                     <div className="mt-2 truncate text-sm font-semibold">{displayName(pr)}</div>
@@ -495,7 +495,7 @@ function RoomPage() {
                 return (
                   <div key={p.id} className="relative flex flex-col items-center text-center">
                     <div className="relative">
-                      <Avatar profile={pr} size={12} />
+                      <Avatar profile={pr} size={48} />
                       {p.hand_raised && (
                         <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-white">
                           <Hand className="h-3 w-3" />
