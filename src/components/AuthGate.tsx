@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth, ADMIN_EMAIL } from "@/lib/auth-context";
 
-const PUBLIC_PATHS = ["/auth", "/reset-password"];
+const PUBLIC_PATHS = ["/auth", "/reset-password", "/landing"];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, isAdmin } = useAuth();
@@ -13,29 +13,26 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+    // Root "/" is auth-aware (landing if logged out, dashboard if approved).
+    const isRoot = path === "/";
 
-    // Not logged in
     if (!user) {
-      if (!isPublic) navigate({ to: "/auth" });
+      if (!isPublic && !isRoot) navigate({ to: "/auth" });
       return;
     }
 
-    // Admin can always go to /admin
     if (path.startsWith("/admin")) {
       if (!isAdmin) navigate({ to: "/" });
       return;
     }
 
-    // Logged in but on /auth → go home (gate decides next step)
     if (isPublic && path !== "/reset-password") {
       navigate({ to: "/" });
       return;
     }
 
-    // Admin email bypasses profile/status checks for normal pages
     if (isAdmin) return;
-
-    if (!profile) return; // still loading profile
+    if (!profile) return;
 
     if (!profile.profile_completed) {
       if (path !== "/complete-profile") navigate({ to: "/complete-profile" });
@@ -52,7 +49,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // approved → if on a gate page, push to home
     if (["/pending-review", "/rejected", "/complete-profile"].includes(path)) {
       navigate({ to: "/" });
     }
@@ -60,8 +56,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" />
+          <p className="text-xs font-medium text-muted-foreground">Loading SkillBridge…</p>
+        </div>
       </div>
     );
   }
