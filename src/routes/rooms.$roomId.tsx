@@ -539,16 +539,16 @@ function displayName(p?: ProfileLite | null) {
   return [p.first_name, p.last_name].filter(Boolean).join(" ") || p.username || "Member";
 }
 
-function Avatar({ profile, size = 12 }: { profile?: ProfileLite | null; size?: number }) {
+function Avatar({ profile, size = 48 }: { profile?: ProfileLite | null; size?: number }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!profile?.avatar_url) { setUrl(null); return; }
     supabase.storage.from("avatars").createSignedUrl(profile.avatar_url, 60 * 60).then(({ data }) => setUrl(data?.signedUrl ?? null));
   }, [profile?.avatar_url]);
-  const cls = `h-${size} w-${size}`;
-  if (url) return <img src={url} alt="" className={`${cls} rounded-full object-cover ring-2 ring-border`} />;
+  const style = { width: size, height: size };
+  if (url) return <img src={url} alt="" style={style} className="rounded-full object-cover ring-2 ring-border" />;
   return (
-    <div className={`${cls} grid place-items-center rounded-full bg-gradient-primary font-bold text-primary-foreground`}>
+    <div style={style} className="grid place-items-center rounded-full bg-gradient-primary font-bold text-primary-foreground">
       {(profile?.first_name?.[0] ?? "?").toUpperCase()}
     </div>
   );
