@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RejectedRouteImport } from './routes/rejected'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PendingReviewRouteImport } from './routes/pending-review'
 import { Route as CompleteProfileRouteImport } from './routes/complete-profile'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -25,6 +26,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const RejectedRoute = RejectedRouteImport.update({
   id: '/rejected',
   path: '/rejected',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PendingReviewRoute = PendingReviewRouteImport.update({
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/complete-profile': typeof CompleteProfileRoute
   '/pending-review': typeof PendingReviewRoute
+  '/profile': typeof ProfileRoute
   '/rejected': typeof RejectedRoute
   '/reset-password': typeof ResetPasswordRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/complete-profile': typeof CompleteProfileRoute
   '/pending-review': typeof PendingReviewRoute
+  '/profile': typeof ProfileRoute
   '/rejected': typeof RejectedRoute
   '/reset-password': typeof ResetPasswordRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/complete-profile': typeof CompleteProfileRoute
   '/pending-review': typeof PendingReviewRoute
+  '/profile': typeof ProfileRoute
   '/rejected': typeof RejectedRoute
   '/reset-password': typeof ResetPasswordRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/complete-profile'
     | '/pending-review'
+    | '/profile'
     | '/rejected'
     | '/reset-password'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/complete-profile'
     | '/pending-review'
+    | '/profile'
     | '/rejected'
     | '/reset-password'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/complete-profile'
     | '/pending-review'
+    | '/profile'
     | '/rejected'
     | '/reset-password'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CompleteProfileRoute: typeof CompleteProfileRoute
   PendingReviewRoute: typeof PendingReviewRoute
+  ProfileRoute: typeof ProfileRoute
   RejectedRoute: typeof RejectedRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
 }
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/rejected'
       fullPath: '/rejected'
       preLoaderRoute: typeof RejectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pending-review': {
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CompleteProfileRoute: CompleteProfileRoute,
   PendingReviewRoute: PendingReviewRoute,
+  ProfileRoute: ProfileRoute,
   RejectedRoute: RejectedRoute,
   ResetPasswordRoute: ResetPasswordRoute,
 }
