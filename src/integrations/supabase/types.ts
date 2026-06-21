@@ -14,7 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          cin_url: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          date_of_birth: string | null
+          education: string | null
+          email: string | null
+          experience: string | null
+          first_name: string | null
+          gender: string | null
+          gmail: string | null
+          id: string
+          interests: string[] | null
+          languages: string[] | null
+          last_name: string | null
+          learning_goals: string | null
+          linkedin: string | null
+          occupation: string | null
+          phone_number: string | null
+          portfolio: string | null
+          professional_title: string | null
+          profile_completed: boolean
+          rejection_reason: string | null
+          skills: string[] | null
+          status: Database["public"]["Enums"]["profile_status"]
+          teaching_interests: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          cin_url?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          education?: string | null
+          email?: string | null
+          experience?: string | null
+          first_name?: string | null
+          gender?: string | null
+          gmail?: string | null
+          id: string
+          interests?: string[] | null
+          languages?: string[] | null
+          last_name?: string | null
+          learning_goals?: string | null
+          linkedin?: string | null
+          occupation?: string | null
+          phone_number?: string | null
+          portfolio?: string | null
+          professional_title?: string | null
+          profile_completed?: boolean
+          rejection_reason?: string | null
+          skills?: string[] | null
+          status?: Database["public"]["Enums"]["profile_status"]
+          teaching_interests?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          cin_url?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          education?: string | null
+          email?: string | null
+          experience?: string | null
+          first_name?: string | null
+          gender?: string | null
+          gmail?: string | null
+          id?: string
+          interests?: string[] | null
+          languages?: string[] | null
+          last_name?: string | null
+          learning_goals?: string | null
+          linkedin?: string | null
+          occupation?: string | null
+          phone_number?: string | null
+          portfolio?: string | null
+          professional_title?: string | null
+          profile_completed?: boolean
+          rejection_reason?: string | null
+          skills?: string[] | null
+          status?: Database["public"]["Enums"]["profile_status"]
+          teaching_interests?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +121,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      profile_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +248,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      profile_status: ["pending", "approved", "rejected"],
+    },
   },
 } as const
