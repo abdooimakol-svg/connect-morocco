@@ -1,0 +1,569 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Room, RoomEvent, Track, type RemoteParticipant, type LocalParticipant, type Participant } from "livekit-client";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/integrations/supabase/client";
+import { getLivekitToken } from "@/lib/livekit.functions";
+import { Navbar } from "@/components/Navbar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Mic, MicOff, Hand, LogOut, Users, Lock, Globe, Crown, Loader2,
+  UserMinus, Volume2, Copy, Check, Shield, X, ArrowLeft, Radio,
+} from "lucide-react";
+import type { Room as DbRoom, RoomParticipant } from "@/lib/rooms";
+import { useServerFn } from "@tanstack/react-start";
+
+export const Route = createFileRoute("/_authenticated/rooms/$roomId")({
+  component: RoomPage,
+});
+
+interface ProfileLite {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  username: string | null;
+  professional_title: string | null;
+  avatar_url: string | null;
+}
+
+function RoomPage() {
+  const { roomId } = Route.useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const tokenFn = useServerFn(getLivekitToken);
+
+  const [room, setRoom] = useState<DbRoom | null>(null);
+  const [participants, setParticipants] = useState<RoomParticipant[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, ProfileLite>>({});
+  const [loading, setLoading] = useState(true);
+  const [passwordPrompt, setPasswordPrompt] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+
+  // LiveKit
+  const lkRoomRef = useRef<Room | null>(null);
+  const [lkConnected, setLkConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [speakingIds, setSpeakingIds] = useState<Set<string>>(new Set());
+  const [remoteParticipants, setRemoteParticipants] = useState<RemoteParticipant[]>([]);
+  const audioElsRef = useRef<HTMLDivElement | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const isHost = !!user && !!room && user.id === room.host_id;
+  const myParticipant = useMemo(
+    () => participants.find((p) => p.user_id === user?.id) ?? null,
+    [participants, user?.id],
+  );
+  const canPublish = myParticipant?.role === "host" || myParticipant?.role === "speaker";
+
+  // ---- Load & subscribe ----
+  const loadProfiles = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("id,first_name,last_name,username,professional_title,avatar_url")
+      .in("id", ids);
+    setProfiles((prev) => {
+      const next = { ...prev };
+      (data ?? []).forEach((p) => { next[(p as ProfileLite).id] = p as ProfileLite; });
+      return next;
+    });
+  }, []);
+
+  const reloadParticipants = useCallback(async () => {
+    const { data } = await supabase
+      .from("room_participants")
+      .select("*")
+      .eq("room_id", roomId);
+    const list = (data ?? []) as unknown as RoomParticipant[];
+    setParticipants(list);
+    await loadProfiles(list.map((p) => p.user_id));
+  }, [roomId, loadProfiles]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase.from("rooms").select("*").eq("id", roomId).maybeSingle();
+      if (cancelled) return;
+      setRoom((data as unknown as DbRoom) ?? null);
+      await reloadParticipants();
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [roomId, reloadParticipants]);
+
+  // Realtime subscription for participants + room status
+  useEffect(() => {
+    const channel = supabase
+      .channel(`room:${roomId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, () => {
+        reloadParticipants();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (payload) => {
+        setRoom(payload.new as unknown as DbRoom);
+        if ((payload.new as unknown as DbRoom).status === "ended") {
+          toast.info("Room has ended");
+          disconnect();
+          setTimeout(() => navigate({ to: "/" }), 1500);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
+  // ---- LiveKit connect ----
+  const connectToLivekit = useCallback(async (allowPublish: boolean) => {
+    if (!room || lkRoomRef.current) return;
+    setConnecting(true);
+    try {
+      const { token, url } = await tokenFn({ data: { roomName: room.livekit_room, canPublish: allowPublish } });
+      const lk = new Room({ adaptiveStream: true, dynacast: true });
+      lkRoomRef.current = lk;
+
+      lk.on(RoomEvent.TrackSubscribed, (track, _pub, _participant) => {
+        if (track.kind === Track.Kind.Audio) {
+          const el = track.attach() as HTMLAudioElement;
+          el.autoplay = true;
+          audioElsRef.current?.appendChild(el);
+        }
+      });
+      lk.on(RoomEvent.TrackUnsubscribed, (track) => {
+        track.detach().forEach((el) => el.remove());
+      });
+      lk.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
+        setSpeakingIds(new Set(speakers.map((s) => s.identity)));
+      });
+      const refreshRemotes = () => setRemoteParticipants(Array.from(lk.remoteParticipants.values()));
+      lk.on(RoomEvent.ParticipantConnected, refreshRemotes);
+      lk.on(RoomEvent.ParticipantDisconnected, refreshRemotes);
+      lk.on(RoomEvent.Disconnected, () => {
+        setLkConnected(false);
+      });
+      lk.on(RoomEvent.Reconnected, () => toast.success("Reconnected"));
+      lk.on(RoomEvent.Reconnecting, () => toast.info("Reconnecting…"));
+
+      await lk.connect(url, token);
+      setLkConnected(true);
+      refreshRemotes();
+      if (allowPublish) {
+        await lk.localParticipant.setMicrophoneEnabled(false);
+        setMuted(true);
+      }
+    } catch (e) {
+      toast.error("Failed to connect to voice: " + (e as Error).message);
+      lkRoomRef.current?.disconnect();
+      lkRoomRef.current = null;
+    } finally {
+      setConnecting(false);
+    }
+  }, [room, tokenFn]);
+
+  const disconnect = useCallback(() => {
+    lkRoomRef.current?.disconnect();
+    lkRoomRef.current = null;
+    setLkConnected(false);
+    setRemoteParticipants([]);
+    setSpeakingIds(new Set());
+  }, []);
+
+  useEffect(() => {
+    return () => { lkRoomRef.current?.disconnect(); };
+  }, []);
+
+  // Re-publish if role changes (e.g. listener accepted to speaker)
+  useEffect(() => {
+    const lk = lkRoomRef.current;
+    if (!lk || !lkConnected) return;
+    if (canPublish) {
+      // Already has token? token canPublish is baked in. Reconnect if needed.
+      if (lk.localParticipant.permissions?.canPublish === false) {
+        // need new token
+        disconnect();
+        connectToLivekit(true);
+      }
+    }
+  }, [canPublish, lkConnected, connectToLivekit, disconnect]);
+
+  // ---- Join flow ----
+  const handleJoin = async () => {
+    if (!user || !room) return;
+    if (room.is_private && room.host_id !== user.id && !myParticipant) {
+      setPasswordPrompt(true);
+      return;
+    }
+    await joinRoom();
+  };
+
+  const joinRoom = async () => {
+    if (!user || !room) return;
+    if (room.status === "locked" && room.host_id !== user.id) {
+      return toast.error("Room is locked");
+    }
+    if (room.status === "ended") return toast.error("Room has ended");
+
+    if (!myParticipant) {
+      const role = room.host_id === user.id ? "host" : "listener";
+      const { error } = await supabase.from("room_participants").insert({
+        room_id: room.id, user_id: user.id, role,
+      } as never);
+      if (error && !error.message.includes("duplicate")) {
+        return toast.error(error.message);
+      }
+      await reloadParticipants();
+    }
+    await connectToLivekit(role(user.id) === "host" || role(user.id) === "speaker");
+  };
+
+  const role = (uid: string) => {
+    const p = participants.find((x) => x.user_id === uid);
+    return p?.role ?? (room?.host_id === uid ? "host" : "listener");
+  };
+
+  const submitPassword = async () => {
+    if (!room) return;
+    if (passwordInput !== (room.password ?? "")) return toast.error("Wrong password");
+    setPasswordPrompt(false);
+    await joinRoom();
+  };
+
+  // ---- Voice controls ----
+  const toggleMute = async () => {
+    const lk = lkRoomRef.current;
+    if (!lk || !canPublish) return;
+    const nextMuted = !muted;
+    await lk.localParticipant.setMicrophoneEnabled(!nextMuted);
+    setMuted(nextMuted);
+  };
+
+  const handleRaiseHand = async () => {
+    if (!user || !myParticipant) return;
+    await supabase.from("room_participants")
+      .update({ hand_raised: !myParticipant.hand_raised } as never)
+      .eq("id", myParticipant.id);
+    toast.success(myParticipant.hand_raised ? "Hand lowered" : "Hand raised — host will see your request");
+  };
+
+  const leaveRoom = async () => {
+    if (!user) return;
+    disconnect();
+    if (myParticipant) {
+      await supabase.from("room_participants").delete().eq("id", myParticipant.id);
+    }
+    navigate({ to: "/" });
+  };
+
+  // ---- Host actions ----
+  const acceptHand = async (p: RoomParticipant) => {
+    await supabase.from("room_participants")
+      .update({ role: "speaker", hand_raised: false } as never)
+      .eq("id", p.id);
+    toast.success("Speaker invited");
+  };
+  const rejectHand = async (p: RoomParticipant) => {
+    await supabase.from("room_participants")
+      .update({ hand_raised: false } as never)
+      .eq("id", p.id);
+  };
+  const muteParticipant = async (p: RoomParticipant) => {
+    await supabase.from("room_participants")
+      .update({ role: "listener" } as never)
+      .eq("id", p.id);
+    toast.success("Participant moved to listeners");
+  };
+  const removeParticipant = async (p: RoomParticipant) => {
+    await supabase.from("room_participants").delete().eq("id", p.id);
+    toast.success("Participant removed");
+  };
+  const toggleLock = async () => {
+    if (!room) return;
+    const next = room.status === "locked" ? "active" : "locked";
+    await supabase.from("rooms").update({ status: next } as never).eq("id", room.id);
+    toast.success(next === "locked" ? "Room locked" : "Room unlocked");
+  };
+  const endRoom = async () => {
+    if (!room) return;
+    await supabase.from("rooms").update({ status: "ended", ended_at: new Date().toISOString() } as never).eq("id", room.id);
+    toast.success("Room ended");
+  };
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  // ---- Render ----
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      </div>
+    );
+  }
+
+  if (!room) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <Card className="mx-auto mt-20 max-w-md p-8 text-center">
+          <h2 className="text-xl font-bold">Room not found</h2>
+          <p className="mt-2 text-sm text-muted-foreground">This room doesn't exist or has been removed.</p>
+          <Button asChild className="mt-4"><Link to="/">Back to home</Link></Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const speakers = participants.filter((p) => p.role === "host" || p.role === "speaker");
+  const listeners = participants.filter((p) => p.role === "listener");
+  const handRaises = participants.filter((p) => p.hand_raised && p.role === "listener");
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        {/* Header */}
+        <div className="mb-4 flex items-center gap-3">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
+          </Button>
+        </div>
+
+        <Card className={`relative overflow-hidden border-border shadow-card`}>
+          <div className={`h-24 bg-gradient-to-br ${room.cover_gradient ?? "from-blue-500 to-indigo-600"}`}>
+            <div className="absolute inset-0 grid-bg opacity-20" />
+          </div>
+          <div className="p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  {room.status === "active" && (
+                    <Badge className="rounded-full bg-success/15 text-success hover:bg-success/15">
+                      <Radio className="mr-1 h-3 w-3 animate-pulse" /> Live
+                    </Badge>
+                  )}
+                  {room.status === "locked" && (
+                    <Badge variant="outline" className="rounded-full"><Lock className="mr-1 h-3 w-3" /> Locked</Badge>
+                  )}
+                  {room.status === "ended" && (
+                    <Badge variant="outline" className="rounded-full">Ended</Badge>
+                  )}
+                  {room.is_private && (
+                    <Badge variant="outline" className="rounded-full"><Lock className="mr-1 h-3 w-3" /> Private</Badge>
+                  )}
+                  {room.language && (
+                    <Badge variant="outline" className="rounded-full"><Globe className="mr-1 h-3 w-3" /> {room.language}</Badge>
+                  )}
+                  {room.skill_level && <Badge variant="secondary" className="rounded-full">{room.skill_level}</Badge>}
+                </div>
+                <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">{room.title}</h1>
+                {room.description && <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{room.description}</p>}
+                <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {participants.length} / {room.max_participants}</span>
+                  {room.topic && <span>· {room.topic}</span>}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={copyLink}>
+                  {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
+                  {copied ? "Copied" : "Share link"}
+                </Button>
+                {!lkConnected ? (
+                  <Button onClick={handleJoin} disabled={connecting || room.status === "ended"} className="bg-gradient-primary">
+                    {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Join voice
+                  </Button>
+                ) : (
+                  <>
+                    {canPublish ? (
+                      <Button onClick={toggleMute} variant={muted ? "outline" : "default"}>
+                        {muted ? <MicOff className="mr-1 h-4 w-4" /> : <Mic className="mr-1 h-4 w-4" />}
+                        {muted ? "Unmute" : "Mute"}
+                      </Button>
+                    ) : (
+                      <Button variant={myParticipant?.hand_raised ? "default" : "outline"} onClick={handleRaiseHand}>
+                        <Hand className="mr-1 h-4 w-4" />
+                        {myParticipant?.hand_raised ? "Hand raised" : "Raise hand"}
+                      </Button>
+                    )}
+                    <Button variant="destructive" onClick={leaveRoom}>
+                      <LogOut className="mr-1 h-4 w-4" /> Leave
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Host controls */}
+            {isHost && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/40 p-3">
+                <Shield className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Host controls</span>
+                <Button variant="outline" size="sm" onClick={toggleLock}>
+                  <Lock className="mr-1 h-3.5 w-3.5" />
+                  {room.status === "locked" ? "Unlock" : "Lock"} room
+                </Button>
+                <Button variant="destructive" size="sm" onClick={endRoom}>End room</Button>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Hand raise requests (host only) */}
+        {isHost && handRaises.length > 0 && (
+          <Card className="mt-4 border-amber-300/40 bg-amber-50/40 p-4 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2">
+              <Hand className="h-4 w-4 text-amber-600" />
+              <h3 className="font-semibold">Hand raise requests ({handRaises.length})</h3>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {handRaises.map((p) => {
+                const pr = profiles[p.user_id];
+                return (
+                  <div key={p.id} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-card">
+                    <Avatar profile={pr} size={8} />
+                    <div className="text-sm">
+                      <div className="font-semibold">{displayName(pr)}</div>
+                      <div className="text-[10px] text-muted-foreground">{pr?.professional_title ?? "Listener"}</div>
+                    </div>
+                    <Button size="sm" onClick={() => acceptHand(p)} className="ml-2">Accept</Button>
+                    <Button size="sm" variant="outline" onClick={() => rejectHand(p)}><X className="h-3 w-3" /></Button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {/* Speakers */}
+        <section className="mt-6">
+          <SectionHeader icon={Mic} title="Speakers" count={speakers.length} />
+          {speakers.length === 0 ? (
+            <Empty label="No speakers yet." />
+          ) : (
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {speakers.map((p) => {
+                const pr = profiles[p.user_id];
+                const speaking = speakingIds.has(p.user_id);
+                return (
+                  <Card key={p.id} className={`relative p-4 text-center transition-all ${speaking ? "ring-2 ring-primary shadow-glow" : ""}`}>
+                    {p.role === "host" && (
+                      <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-primary text-[10px]">
+                        <Crown className="mr-0.5 h-2.5 w-2.5" /> Host
+                      </Badge>
+                    )}
+                    <div className="relative mx-auto">
+                      <Avatar profile={pr} size={16} />
+                      {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-white"><Volume2 className="h-3 w-3" /></span>}
+                    </div>
+                    <div className="mt-2 truncate text-sm font-semibold">{displayName(pr)}</div>
+                    <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? "Speaker"}</div>
+                    {isHost && p.user_id !== user?.id && (
+                      <div className="mt-2 flex justify-center gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} title="Move to listener">
+                          <MicOff className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeParticipant(p)} title="Remove">
+                          <UserMinus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Listeners */}
+        <section className="mt-8">
+          <SectionHeader icon={Users} title="Listeners" count={listeners.length} />
+          {listeners.length === 0 ? (
+            <Empty label="No listeners yet." />
+          ) : (
+            <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+              {listeners.map((p) => {
+                const pr = profiles[p.user_id];
+                return (
+                  <div key={p.id} className="relative flex flex-col items-center text-center">
+                    <div className="relative">
+                      <Avatar profile={pr} size={12} />
+                      {p.hand_raised && (
+                        <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-white">
+                          <Hand className="h-3 w-3" />
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 w-full truncate text-xs font-medium">{displayName(pr)}</div>
+                    {isHost && (
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)}>
+                        <UserMinus className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div ref={audioElsRef} className="hidden" />
+        {/* avoid unused warning */}
+        <span className="hidden">{remoteParticipants.length}{(undefined as unknown as LocalParticipant | undefined)?.identity}</span>
+      </main>
+
+      <Dialog open={passwordPrompt} onOpenChange={setPasswordPrompt}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>This room is private</DialogTitle></DialogHeader>
+          <Input value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="Room password" type="password" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordPrompt(false)}>Cancel</Button>
+            <Button onClick={submitPassword}>Enter</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function displayName(p?: ProfileLite | null) {
+  if (!p) return "Member";
+  return [p.first_name, p.last_name].filter(Boolean).join(" ") || p.username || "Member";
+}
+
+function Avatar({ profile, size = 12 }: { profile?: ProfileLite | null; size?: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!profile?.avatar_url) { setUrl(null); return; }
+    supabase.storage.from("avatars").createSignedUrl(profile.avatar_url, 60 * 60).then(({ data }) => setUrl(data?.signedUrl ?? null));
+  }, [profile?.avatar_url]);
+  const cls = `h-${size} w-${size}`;
+  if (url) return <img src={url} alt="" className={`${cls} rounded-full object-cover ring-2 ring-border`} />;
+  return (
+    <div className={`${cls} grid place-items-center rounded-full bg-gradient-primary font-bold text-primary-foreground`}>
+      {(profile?.first_name?.[0] ?? "?").toUpperCase()}
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, count }: { icon: React.ComponentType<{ className?: string }>; title: string; count: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="h-4 w-4 text-primary" />
+      <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+      <Badge variant="secondary" className="rounded-full">{count}</Badge>
+    </div>
+  );
+}
+
+function Empty({ label }: { label: string }) {
+  return <p className="mt-3 text-sm italic text-muted-foreground">{label}</p>;
+}
