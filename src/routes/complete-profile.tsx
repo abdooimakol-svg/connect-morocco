@@ -163,7 +163,7 @@ function CompleteProfile() {
                     <Input required value={form.username} onChange={upd("username")} className="h-11" placeholder="yasmine.dev" />
                   </Field>
                   <Field label="Gender">
-                    <select value={form.gender} onChange={upd("gender") as React.ChangeEventHandler<HTMLSelectElement>}
+                    <select value={form.gender} onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
                       className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs">
                       <option value="">Select…</option>
                       <option value="male">Male</option>
