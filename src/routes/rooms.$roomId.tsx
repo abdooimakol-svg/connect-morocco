@@ -18,7 +18,7 @@ import {
 import type { Room as DbRoom, RoomParticipant } from "@/lib/rooms";
 import { useServerFn } from "@tanstack/react-start";
 
-export const Route = createFileRoute("/_authenticated/rooms/$roomId")({
+export const Route = createFileRoute("/rooms/$roomId")({
   component: RoomPage,
 });
 
