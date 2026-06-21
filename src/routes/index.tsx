@@ -1,14 +1,18 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { CreateRoomModal } from "@/components/CreateRoomModal";
+import { listActiveRooms, type Room as DbRoom } from "@/lib/rooms";
 import {
   Users, Mic, GraduationCap, Trophy, TrendingUp, Sparkles, Search,
   ArrowRight, BookOpen, Heart, Shield, MessageSquare, Compass,
-  Plus, UserCircle, Globe, CheckCircle2, Star,
+  Plus, UserCircle, Globe, CheckCircle2, Star, Lock, Radio,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
