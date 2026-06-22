@@ -442,7 +442,7 @@ function RoomPage() {
 
         <Card className={`relative overflow-hidden border-border shadow-card`}>
           <div className={`h-24 bg-gradient-to-br ${room.cover_gradient ?? "from-blue-500 to-indigo-600"}`}>
-            <div className="absolute inset-0 grid-bg opacity-20" />
+            <div className="pointer-events-none absolute inset-0 grid-bg opacity-20" />
           </div>
           <div className="p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
