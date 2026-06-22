@@ -120,14 +120,15 @@ function RoomPage() {
 
   // ---- LiveKit connect ----
   const connectToLivekit = useCallback(async (allowPublish: boolean) => {
-    if (!room || lkRoomRef.current) return;
+    if (!room) return;
+    if (lkRoomRef.current) return;
     setConnecting(true);
     try {
       const { token, url } = await tokenFn({ data: { roomName: room.livekit_room, canPublish: allowPublish } });
       const lk = new Room({ adaptiveStream: true, dynacast: true });
       lkRoomRef.current = lk;
 
-      lk.on(RoomEvent.TrackSubscribed, (track, _pub, _participant) => {
+      lk.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach() as HTMLAudioElement;
           el.autoplay = true;
@@ -145,6 +146,7 @@ function RoomPage() {
       lk.on(RoomEvent.ParticipantDisconnected, refreshRemotes);
       lk.on(RoomEvent.Disconnected, () => {
         setLkConnected(false);
+        lkRoomRef.current = null;
       });
       lk.on(RoomEvent.Reconnected, () => toast.success("Reconnected"));
       lk.on(RoomEvent.Reconnecting, () => toast.info("Reconnecting…"));
@@ -153,12 +155,21 @@ function RoomPage() {
       setLkConnected(true);
       refreshRemotes();
       if (allowPublish) {
-        await lk.localParticipant.setMicrophoneEnabled(false);
-        setMuted(true);
+        try {
+          // request mic permission, then start muted
+          await lk.localParticipant.setMicrophoneEnabled(true);
+          await lk.localParticipant.setMicrophoneEnabled(false);
+          setMuted(true);
+        } catch (micErr) {
+          console.error(micErr);
+          toast.error("Microphone access denied — you can listen but not speak");
+        }
       }
+      toast.success("Connected to voice");
     } catch (e) {
-      toast.error("Failed to connect to voice: " + (e as Error).message);
-      lkRoomRef.current?.disconnect();
+      console.error("LiveKit connect failed", e);
+      toast.error("Failed to connect: " + ((e as Error).message ?? "unknown error"));
+      try { lkRoomRef.current?.disconnect(); } catch { /* noop */ }
       lkRoomRef.current = null;
     } finally {
       setConnecting(false);
@@ -166,7 +177,7 @@ function RoomPage() {
   }, [room, tokenFn]);
 
   const disconnect = useCallback(() => {
-    lkRoomRef.current?.disconnect();
+    try { lkRoomRef.current?.disconnect(); } catch { /* noop */ }
     lkRoomRef.current = null;
     setLkConnected(false);
     setRemoteParticipants([]);
@@ -174,24 +185,44 @@ function RoomPage() {
   }, []);
 
   useEffect(() => {
-    return () => { lkRoomRef.current?.disconnect(); };
+    return () => { try { lkRoomRef.current?.disconnect(); } catch { /* noop */ } };
   }, []);
 
   // Re-publish if role changes (e.g. listener accepted to speaker)
   useEffect(() => {
     const lk = lkRoomRef.current;
     if (!lk || !lkConnected) return;
-    if (canPublish) {
-      // Already has token? token canPublish is baked in. Reconnect if needed.
-      if (lk.localParticipant.permissions?.canPublish === false) {
-        // need new token
-        disconnect();
-        connectToLivekit(true);
-      }
+    const hasPublish = lk.localParticipant.permissions?.canPublish === true;
+    if (canPublish && !hasPublish) {
+      disconnect();
+      setTimeout(() => { void connectToLivekit(true); }, 150);
     }
   }, [canPublish, lkConnected, connectToLivekit, disconnect]);
 
   // ---- Join flow ----
+  const joinRoom = useCallback(async () => {
+    if (!user || !room) return;
+    if (room.status === "locked" && room.host_id !== user.id) {
+      toast.error("Room is locked"); return;
+    }
+    if (room.status === "ended") { toast.error("Room has ended"); return; }
+
+    let myRole: "host" | "speaker" | "listener" = myParticipant?.role
+      ?? (room.host_id === user.id ? "host" : "listener");
+
+    if (!myParticipant) {
+      myRole = room.host_id === user.id ? "host" : "listener";
+      const { error } = await supabase.from("room_participants").insert({
+        room_id: room.id, user_id: user.id, role: myRole,
+      } as never);
+      if (error && !error.message.toLowerCase().includes("duplicate")) {
+        toast.error(error.message); return;
+      }
+      await reloadParticipants();
+    }
+    await connectToLivekit(myRole === "host" || myRole === "speaker");
+  }, [user, room, myParticipant, connectToLivekit, reloadParticipants]);
+
   const handleJoin = async () => {
     if (!user || !room) return;
     if (room.is_private && room.host_id !== user.id && !myParticipant) {
@@ -199,31 +230,6 @@ function RoomPage() {
       return;
     }
     await joinRoom();
-  };
-
-  const joinRoom = async () => {
-    if (!user || !room) return;
-    if (room.status === "locked" && room.host_id !== user.id) {
-      return toast.error("Room is locked");
-    }
-    if (room.status === "ended") return toast.error("Room has ended");
-
-    if (!myParticipant) {
-      const role = room.host_id === user.id ? "host" : "listener";
-      const { error } = await supabase.from("room_participants").insert({
-        room_id: room.id, user_id: user.id, role,
-      } as never);
-      if (error && !error.message.includes("duplicate")) {
-        return toast.error(error.message);
-      }
-      await reloadParticipants();
-    }
-    await connectToLivekit(role(user.id) === "host" || role(user.id) === "speaker");
-  };
-
-  const role = (uid: string) => {
-    const p = participants.find((x) => x.user_id === uid);
-    return p?.role ?? (room?.host_id === uid ? "host" : "listener");
   };
 
   const submitPassword = async () => {
@@ -294,9 +300,37 @@ function RoomPage() {
   };
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    const url = window.location.href;
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        ok = true;
+      }
+    } catch { /* fall through */ }
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { /* noop */ }
+    }
+    if (ok) {
+      setCopied(true);
+      toast.success("Room link copied");
+      setTimeout(() => setCopied(false), 1500);
+    } else {
+      toast.error("Couldn't copy. URL: " + url);
+    }
+    // Try native share on mobile if available
+    if (!ok && typeof navigator.share === "function") {
+      try { await navigator.share({ title: room?.title ?? "Room", url }); } catch { /* noop */ }
+    }
   };
 
   // ---- Render ----
