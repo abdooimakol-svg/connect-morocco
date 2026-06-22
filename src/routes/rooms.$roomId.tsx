@@ -300,9 +300,37 @@ function RoomPage() {
   };
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    const url = window.location.href;
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        ok = true;
+      }
+    } catch { /* fall through */ }
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { /* noop */ }
+    }
+    if (ok) {
+      setCopied(true);
+      toast.success("Room link copied");
+      setTimeout(() => setCopied(false), 1500);
+    } else {
+      toast.error("Couldn't copy. URL: " + url);
+    }
+    // Try native share on mobile if available
+    if (!ok && typeof navigator.share === "function") {
+      try { await navigator.share({ title: room?.title ?? "Room", url }); } catch { /* noop */ }
+    }
   };
 
   // ---- Render ----
