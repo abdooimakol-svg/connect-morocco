@@ -82,6 +82,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "SkillBridge Morocco" },
       { property: "og:description", content: "Connect, learn and teach skills across Morocco." },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "SkillBridge Morocco" },
+      { name: "twitter:description", content: "Connect, learn and teach skills across Morocco." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/eJLJf5yeNGaHzVUqiiWlTb52w4o1/social-images/social-1782021399147-ChatGPT_Image_Jun_21,_2026,_06_55_23_AM.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/eJLJf5yeNGaHzVUqiiWlTb52w4o1/social-images/social-1782021399147-ChatGPT_Image_Jun_21,_2026,_06_55_23_AM.webp" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
