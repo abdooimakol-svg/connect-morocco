@@ -58,7 +58,7 @@ function ProfilePage() {
         {/* Header card */}
         <Card className="relative overflow-hidden border-border shadow-card">
           <div className="h-32 bg-gradient-primary sm:h-40">
-            <div className="absolute inset-0 grid-bg opacity-20" />
+            <div className="pointer-events-none absolute inset-0 grid-bg opacity-20" />
           </div>
           <div className="px-6 pb-6 sm:px-8 sm:pb-8">
             <div className="-mt-12 flex flex-col items-start gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:justify-between">

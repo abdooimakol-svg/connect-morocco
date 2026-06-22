@@ -310,7 +310,7 @@ function Dashboard() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:py-10">
         {/* Welcome */}
         <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-soft p-6 shadow-card sm:p-8">
-          <div className="absolute inset-0 grid-bg opacity-40" />
+          <div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />
           <div className="relative grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-end">
             <div>
               <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 text-primary">
@@ -441,7 +441,7 @@ function RoomCard({ room, onJoin }: { room: DbRoom; onJoin: () => void }) {
   return (
     <Card className="group overflow-hidden border-border shadow-card transition-all hover:-translate-y-1 hover:shadow-elevated">
       <div className={`relative h-28 bg-gradient-to-br ${room.cover_gradient ?? "from-blue-500 to-indigo-600"}`}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,white,transparent_60%)] opacity-30" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,white,transparent_60%)] opacity-30" />
         {room.topic && (
           <Badge className="absolute left-3 top-3 rounded-full bg-background/90 text-foreground hover:bg-background">
             {room.topic}

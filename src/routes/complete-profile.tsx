@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -26,7 +26,7 @@ const STEPS = [
 ];
 
 function CompleteProfile() {
-  const { user, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -42,6 +42,33 @@ function CompleteProfile() {
     interests: "", learning_goals: "", teaching_interests: "",
   });
 
+  useEffect(() => {
+    if (!profile) return;
+    setForm({
+      first_name: profile.first_name ?? "",
+      last_name: profile.last_name ?? "",
+      username: profile.username ?? "",
+      gender: profile.gender ?? "",
+      date_of_birth: profile.date_of_birth ?? "",
+      city: profile.city ?? "",
+      country: profile.country ?? "Morocco",
+      phone_number: profile.phone_number ?? "",
+      gmail: profile.gmail ?? "",
+      professional_title: profile.professional_title ?? "",
+      bio: profile.bio ?? "",
+      skills: (profile.skills ?? []).join(", "),
+      experience: profile.experience ?? "",
+      languages: (profile.languages ?? []).join(", "),
+      education: profile.education ?? "",
+      occupation: profile.occupation ?? "",
+      linkedin: profile.linkedin ?? "",
+      portfolio: profile.portfolio ?? "",
+      interests: (profile.interests ?? []).join(", "),
+      learning_goals: profile.learning_goals ?? "",
+      teaching_interests: profile.teaching_interests ?? "",
+    });
+  }, [profile]);
+
   const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -56,14 +83,14 @@ function CompleteProfile() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!avatarFile) return toast.error("Profile picture is required");
-    if (!cinFile) return toast.error("CIN image is required");
+    if (!avatarFile && !profile?.avatar_url) return toast.error("Profile picture is required");
+    if (!cinFile && !profile?.cin_url) return toast.error("CIN image is required");
 
     setLoading(true);
     try {
       const [avatarPath, cinPath] = await Promise.all([
-        uploadTo("avatars", avatarFile),
-        uploadTo("cins", cinFile),
+        avatarFile ? uploadTo("avatars", avatarFile) : Promise.resolve(profile?.avatar_url ?? null),
+        cinFile ? uploadTo("cins", cinFile) : Promise.resolve(profile?.cin_url ?? null),
       ]);
 
       const { error } = await supabase.from("profiles").update({
@@ -95,8 +122,8 @@ function CompleteProfile() {
 
       if (error) throw error;
       await refreshProfile();
-      toast.success("Profile submitted for review.");
-      navigate({ to: "/pending-review" });
+      toast.success(profile?.profile_completed ? "Profile updated." : "Profile submitted for review.");
+      navigate({ to: profile?.profile_completed ? "/profile" : "/pending-review" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submission failed";
       toast.error(msg);
