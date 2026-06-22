@@ -1,10 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Room, RoomEvent, Track, type RemoteParticipant, type LocalParticipant, type Participant } from "livekit-client";
+import { Room, RoomEvent, Track, type RemoteParticipant, type Participant } from "livekit-client";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { getLivekitToken } from "@/lib/livekit.functions";
+import {
+  deleteLivekitRoom,
+  getLivekitToken,
+  muteLivekitParticipant,
+  promoteLivekitParticipant,
+  removeLivekitParticipant,
+} from "@/lib/livekit.functions";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,6 +42,10 @@ function RoomPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const tokenFn = useServerFn(getLivekitToken);
+  const promoteParticipantFn = useServerFn(promoteLivekitParticipant);
+  const muteParticipantFn = useServerFn(muteLivekitParticipant);
+  const removeParticipantFn = useServerFn(removeLivekitParticipant);
+  const deleteRoomFn = useServerFn(deleteLivekitRoom);
 
   const [room, setRoom] = useState<DbRoom | null>(null);
   const [participants, setParticipants] = useState<RoomParticipant[]>([]);
@@ -48,6 +58,7 @@ function RoomPage() {
   const lkRoomRef = useRef<Room | null>(null);
   const [lkConnected, setLkConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [muted, setMuted] = useState(true);
   const [speakingIds, setSpeakingIds] = useState<Set<string>>(new Set());
   const [remoteParticipants, setRemoteParticipants] = useState<RemoteParticipant[]>([]);
@@ -121,7 +132,7 @@ function RoomPage() {
   // ---- LiveKit connect ----
   const connectToLivekit = useCallback(async (allowPublish: boolean) => {
     if (!room) return;
-    if (lkRoomRef.current) return;
+    if (lkRoomRef.current && lkConnected) return;
     setConnecting(true);
     try {
       const { token, url } = await tokenFn({ data: { roomName: room.livekit_room, canPublish: allowPublish } });
@@ -144,9 +155,14 @@ function RoomPage() {
       const refreshRemotes = () => setRemoteParticipants(Array.from(lk.remoteParticipants.values()));
       lk.on(RoomEvent.ParticipantConnected, refreshRemotes);
       lk.on(RoomEvent.ParticipantDisconnected, refreshRemotes);
+      lk.on(RoomEvent.ConnectionStateChanged, () => {
+        setLkConnected(lk.state === "connected");
+      });
       lk.on(RoomEvent.Disconnected, () => {
         setLkConnected(false);
         lkRoomRef.current = null;
+        setRemoteParticipants([]);
+        setSpeakingIds(new Set());
       });
       lk.on(RoomEvent.Reconnected, () => toast.success("Reconnected"));
       lk.on(RoomEvent.Reconnecting, () => toast.info("Reconnecting…"));
@@ -171,10 +187,11 @@ function RoomPage() {
       toast.error("Failed to connect: " + ((e as Error).message ?? "unknown error"));
       try { lkRoomRef.current?.disconnect(); } catch { /* noop */ }
       lkRoomRef.current = null;
+      setLkConnected(false);
     } finally {
       setConnecting(false);
     }
-  }, [room, tokenFn]);
+  }, [room, tokenFn, lkConnected]);
 
   const disconnect = useCallback(() => {
     try { lkRoomRef.current?.disconnect(); } catch { /* noop */ }
@@ -249,10 +266,12 @@ function RoomPage() {
   };
 
   const handleRaiseHand = async () => {
-    if (!user || !myParticipant) return;
-    await supabase.from("room_participants")
+    if (!user || !myParticipant) return toast.error("Join the room before raising your hand");
+    const { error } = await supabase.from("room_participants")
       .update({ hand_raised: !myParticipant.hand_raised } as never)
       .eq("id", myParticipant.id);
+    if (error) return toast.error(error.message);
+    await reloadParticipants();
     toast.success(myParticipant.hand_raised ? "Hand lowered" : "Hand raised — host will see your request");
   };
 
@@ -267,36 +286,86 @@ function RoomPage() {
 
   // ---- Host actions ----
   const acceptHand = async (p: RoomParticipant) => {
-    await supabase.from("room_participants")
+    if (!room) return;
+    setActionBusy(`accept-${p.id}`);
+    try {
+      const { error } = await supabase.from("room_participants")
       .update({ role: "speaker", hand_raised: false } as never)
       .eq("id", p.id);
-    toast.success("Speaker invited");
+      if (error) throw error;
+      const livekitResult = await promoteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      await reloadParticipants();
+      toast.success(livekitResult.ok ? "Listener promoted to speaker" : "Speaker role saved — they will reconnect with mic access");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not promote listener");
+    } finally {
+      setActionBusy(null);
+    }
   };
   const rejectHand = async (p: RoomParticipant) => {
-    await supabase.from("room_participants")
+    const { error } = await supabase.from("room_participants")
       .update({ hand_raised: false } as never)
       .eq("id", p.id);
+    if (error) return toast.error(error.message);
+    await reloadParticipants();
+    toast.success("Request dismissed");
   };
   const muteParticipant = async (p: RoomParticipant) => {
-    await supabase.from("room_participants")
+    if (!room) return;
+    setActionBusy(`mute-${p.id}`);
+    try {
+      const livekitResult = await muteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      const { error } = await supabase.from("room_participants")
       .update({ role: "listener" } as never)
       .eq("id", p.id);
-    toast.success("Participant moved to listeners");
+      if (error) throw error;
+      await reloadParticipants();
+      toast.success(livekitResult.ok ? "Participant muted and moved to listeners" : "Participant moved to listeners");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not mute participant");
+    } finally {
+      setActionBusy(null);
+    }
   };
   const removeParticipant = async (p: RoomParticipant) => {
-    await supabase.from("room_participants").delete().eq("id", p.id);
-    toast.success("Participant removed");
+    if (!room) return;
+    setActionBusy(`remove-${p.id}`);
+    try {
+      await removeParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      const { error } = await supabase.from("room_participants").delete().eq("id", p.id);
+      if (error) throw error;
+      await reloadParticipants();
+      toast.success("Participant removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove participant");
+    } finally {
+      setActionBusy(null);
+    }
   };
   const toggleLock = async () => {
     if (!room) return;
     const next = room.status === "locked" ? "active" : "locked";
-    await supabase.from("rooms").update({ status: next } as never).eq("id", room.id);
+    const { error } = await supabase.from("rooms").update({ status: next } as never).eq("id", room.id);
+    if (error) return toast.error(error.message);
+    setRoom({ ...room, status: next });
     toast.success(next === "locked" ? "Room locked" : "Room unlocked");
   };
   const endRoom = async () => {
     if (!room) return;
-    await supabase.from("rooms").update({ status: "ended", ended_at: new Date().toISOString() } as never).eq("id", room.id);
-    toast.success("Room ended");
+    setActionBusy("end-room");
+    try {
+      await deleteRoomFn({ data: { roomName: room.livekit_room } });
+      const ended_at = new Date().toISOString();
+      const { error } = await supabase.from("rooms").update({ status: "ended", ended_at } as never).eq("id", room.id);
+      if (error) throw error;
+      setRoom({ ...room, status: "ended", ended_at });
+      disconnect();
+      toast.success("Room ended");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not end room");
+    } finally {
+      setActionBusy(null);
+    }
   };
 
   const copyLink = async () => {
@@ -411,10 +480,18 @@ function RoomPage() {
                   {copied ? "Copied" : "Share link"}
                 </Button>
                 {!lkConnected ? (
-                  <Button onClick={handleJoin} disabled={connecting || room.status === "ended"} className="bg-gradient-primary">
-                    {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Join voice
-                  </Button>
+                  <>
+                    {myParticipant?.role === "listener" && (
+                      <Button variant={myParticipant.hand_raised ? "default" : "outline"} onClick={handleRaiseHand}>
+                        <Hand className="mr-1 h-4 w-4" />
+                        {myParticipant.hand_raised ? "Hand raised" : "Raise hand"}
+                      </Button>
+                    )}
+                    <Button onClick={handleJoin} disabled={connecting || room.status === "ended"} className="bg-gradient-primary">
+                      {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Join voice
+                    </Button>
+                  </>
                 ) : (
                   <>
                     {canPublish ? (
@@ -445,7 +522,10 @@ function RoomPage() {
                   <Lock className="mr-1 h-3.5 w-3.5" />
                   {room.status === "locked" ? "Unlock" : "Lock"} room
                 </Button>
-                <Button variant="destructive" size="sm" onClick={endRoom}>End room</Button>
+                <Button variant="destructive" size="sm" onClick={endRoom} disabled={actionBusy === "end-room"}>
+                  {actionBusy === "end-room" && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                  End room
+                </Button>
               </div>
             )}
           </div>
@@ -468,7 +548,10 @@ function RoomPage() {
                       <div className="font-semibold">{displayName(pr)}</div>
                       <div className="text-[10px] text-muted-foreground">{pr?.professional_title ?? "Listener"}</div>
                     </div>
-                    <Button size="sm" onClick={() => acceptHand(p)} className="ml-2">Accept</Button>
+                    <Button size="sm" onClick={() => acceptHand(p)} disabled={actionBusy === `accept-${p.id}`} className="ml-2">
+                      {actionBusy === `accept-${p.id}` && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      Accept
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => rejectHand(p)}><X className="h-3 w-3" /></Button>
                   </div>
                 );
@@ -496,16 +579,16 @@ function RoomPage() {
                     )}
                     <div className="relative mx-auto">
                       <Avatar profile={pr} size={64} />
-                      {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-white"><Volume2 className="h-3 w-3" /></span>}
+                      {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-primary-foreground"><Volume2 className="h-3 w-3" /></span>}
                     </div>
                     <div className="mt-2 truncate text-sm font-semibold">{displayName(pr)}</div>
                     <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? "Speaker"}</div>
                     {isHost && p.user_id !== user?.id && (
                       <div className="mt-2 flex justify-center gap-1">
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} title="Move to listener">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} disabled={actionBusy === `mute-${p.id}`} title="Mute and move to listener">
                           <MicOff className="h-3.5 w-3.5" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeParticipant(p)} title="Remove">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`} title="Remove">
                           <UserMinus className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -538,7 +621,7 @@ function RoomPage() {
                     </div>
                     <div className="mt-1 w-full truncate text-xs font-medium">{displayName(pr)}</div>
                     {isHost && (
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)}>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`}>
                         <UserMinus className="h-3 w-3" />
                       </Button>
                     )}
@@ -551,7 +634,7 @@ function RoomPage() {
 
         <div ref={audioElsRef} className="hidden" />
         {/* avoid unused warning */}
-        <span className="hidden">{remoteParticipants.length}{(undefined as unknown as LocalParticipant | undefined)?.identity}</span>
+        <span className="hidden">{remoteParticipants.length}</span>
       </main>
 
       <Dialog open={passwordPrompt} onOpenChange={setPasswordPrompt}>

@@ -49,7 +49,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (["/pending-review", "/rejected", "/complete-profile"].includes(path)) {
+    if (["/pending-review", "/rejected"].includes(path)) {
       navigate({ to: "/" });
     }
   }, [loading, user, profile, isAdmin, path, navigate]);
