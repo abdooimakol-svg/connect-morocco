@@ -82,7 +82,19 @@ function RoomPage() {
   );
   const canPublish = myParticipant?.role === "host" || myParticipant?.role === "speaker";
 
-  // ---- Load & subscribe ----
+  // Live reactions
+  const [reactions, setReactions] = useState<LiveReaction[]>([]);
+  const reactionChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const pushReaction = useCallback((userId: string, emoji: string) => {
+    const id = `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setReactions((prev) => [...prev, { id, userId, emoji }]);
+    setTimeout(() => {
+      setReactions((prev) => prev.filter((r) => r.id !== id));
+    }, REACTION_TTL_MS);
+  }, []);
+
+
   const loadProfiles = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
     const { data } = await supabase
