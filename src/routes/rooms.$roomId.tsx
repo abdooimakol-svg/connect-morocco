@@ -19,8 +19,18 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Mic, MicOff, Hand, LogOut, Users, Lock, Globe, Crown, Loader2,
-  UserMinus, Volume2, Copy, Check, Shield, X, ArrowLeft, Radio,
+  UserMinus, Volume2, Copy, Check, Shield, X, ArrowLeft, Radio, Smile,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👏", "🚀", "💡"] as const;
+const REACTION_TTL_MS = 3200;
+
+interface LiveReaction {
+  id: string;
+  userId: string;
+  emoji: string;
+}
 import type { Room as DbRoom, RoomParticipant } from "@/lib/rooms";
 import { useServerFn } from "@tanstack/react-start";
 
