@@ -530,6 +530,29 @@ function RoomPage() {
                   {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
                   {copied ? "Copied" : "Share link"}
                 </Button>
+                {myParticipant && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" title="Send a reaction">
+                        <Smile className="mr-1 h-4 w-4" /> React
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="end">
+                      <div className="flex gap-1">
+                        {REACTION_EMOJIS.map((e) => (
+                          <button
+                            key={e}
+                            type="button"
+                            onClick={() => sendReaction(e)}
+                            className="grid h-10 w-10 place-items-center rounded-lg text-2xl transition-all hover:scale-125 hover:bg-muted active:scale-110"
+                          >
+                            {e}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
                 {!lkConnected ? (
                   <>
                     {myParticipant?.role === "listener" && (
