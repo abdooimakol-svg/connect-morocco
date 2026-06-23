@@ -1,5 +1,5 @@
 console.log("SERVER FILE LOADED");
-console.log("PORT:", process.env.PORT);
+console.log("🔥 SERVER STARTED ON PORT:", process.env.PORT);
 
 import "./lib/error-capture";
 
