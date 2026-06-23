@@ -688,6 +688,7 @@ function RoomPage() {
                   <div key={p.id} className="relative flex flex-col items-center text-center">
                     <div className="relative">
                       <Avatar profile={pr} size={48} />
+                      <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {p.hand_raised && (
                         <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-white">
                           <Hand className="h-3 w-3" />
