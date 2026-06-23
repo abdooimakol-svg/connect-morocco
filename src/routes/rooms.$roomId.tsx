@@ -149,7 +149,34 @@ function RoomPage() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+
+  // Realtime broadcast channel for emoji reactions (low-latency fanout)
+  useEffect(() => {
+    const ch = supabase.channel(`room-reactions:${roomId}`, {
+      config: { broadcast: { self: true } },
+    });
+    ch.on("broadcast", { event: "reaction" }, (msg) => {
+      const payload = msg.payload as { userId?: string; emoji?: string } | undefined;
+      if (payload?.userId && payload.emoji) pushReaction(payload.userId, payload.emoji);
+    }).subscribe();
+    reactionChannelRef.current = ch;
+    return () => {
+      supabase.removeChannel(ch);
+      reactionChannelRef.current = null;
+    };
+  }, [roomId, pushReaction]);
+
+  const sendReaction = useCallback(async (emoji: string) => {
+    if (!user || !room) return;
+    if (!myParticipant) { toast.error("Join the room to react"); return; }
+    const ch = reactionChannelRef.current;
+    if (ch) {
+      ch.send({ type: "broadcast", event: "reaction", payload: { userId: user.id, emoji } });
+    }
+    // Persist (fire-and-forget); RLS ensures only participants can insert
+    void supabase.from("room_reactions").insert({ room_id: room.id, user_id: user.id, emoji } as never);
+  }, [user, room, myParticipant]);
+
 
   // ---- LiveKit connect ----
   const connectToLivekit = useCallback(async (allowPublish: boolean) => {
