@@ -19,8 +19,18 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Mic, MicOff, Hand, LogOut, Users, Lock, Globe, Crown, Loader2,
-  UserMinus, Volume2, Copy, Check, Shield, X, ArrowLeft, Radio,
+  UserMinus, Volume2, Copy, Check, Shield, X, ArrowLeft, Radio, Smile,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👏", "🚀", "💡"] as const;
+const REACTION_TTL_MS = 3200;
+
+interface LiveReaction {
+  id: string;
+  userId: string;
+  emoji: string;
+}
 import type { Room as DbRoom, RoomParticipant } from "@/lib/rooms";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -72,7 +82,19 @@ function RoomPage() {
   );
   const canPublish = myParticipant?.role === "host" || myParticipant?.role === "speaker";
 
-  // ---- Load & subscribe ----
+  // Live reactions
+  const [reactions, setReactions] = useState<LiveReaction[]>([]);
+  const reactionChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const pushReaction = useCallback((userId: string, emoji: string) => {
+    const id = `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setReactions((prev) => [...prev, { id, userId, emoji }]);
+    setTimeout(() => {
+      setReactions((prev) => prev.filter((r) => r.id !== id));
+    }, REACTION_TTL_MS);
+  }, []);
+
+
   const loadProfiles = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
     const { data } = await supabase
@@ -128,6 +150,35 @@ function RoomPage() {
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
+
+
+  // Realtime broadcast channel for emoji reactions (low-latency fanout)
+  useEffect(() => {
+    const ch = supabase.channel(`room-reactions:${roomId}`, {
+      config: { broadcast: { self: true } },
+    });
+    ch.on("broadcast", { event: "reaction" }, (msg) => {
+      const payload = msg.payload as { userId?: string; emoji?: string } | undefined;
+      if (payload?.userId && payload.emoji) pushReaction(payload.userId, payload.emoji);
+    }).subscribe();
+    reactionChannelRef.current = ch;
+    return () => {
+      supabase.removeChannel(ch);
+      reactionChannelRef.current = null;
+    };
+  }, [roomId, pushReaction]);
+
+  const sendReaction = useCallback(async (emoji: string) => {
+    if (!user || !room) return;
+    if (!myParticipant) { toast.error("Join the room to react"); return; }
+    const ch = reactionChannelRef.current;
+    if (ch) {
+      ch.send({ type: "broadcast", event: "reaction", payload: { userId: user.id, emoji } });
+    }
+    // Persist (fire-and-forget); RLS ensures only participants can insert
+    void supabase.from("room_reactions").insert({ room_id: room.id, user_id: user.id, emoji } as never);
+  }, [user, room, myParticipant]);
+
 
   // ---- LiveKit connect ----
   const connectToLivekit = useCallback(async (allowPublish: boolean) => {
@@ -479,6 +530,29 @@ function RoomPage() {
                   {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
                   {copied ? "Copied" : "Share link"}
                 </Button>
+                {myParticipant && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" title="Send a reaction">
+                        <Smile className="mr-1 h-4 w-4" /> React
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="end">
+                      <div className="flex gap-1">
+                        {REACTION_EMOJIS.map((e) => (
+                          <button
+                            key={e}
+                            type="button"
+                            onClick={() => sendReaction(e)}
+                            className="grid h-10 w-10 place-items-center rounded-lg text-2xl transition-all hover:scale-125 hover:bg-muted active:scale-110"
+                          >
+                            {e}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
                 {!lkConnected ? (
                   <>
                     {myParticipant?.role === "listener" && (
@@ -577,8 +651,9 @@ function RoomPage() {
                         <Crown className="mr-0.5 h-2.5 w-2.5" /> Host
                       </Badge>
                     )}
-                    <div className="relative mx-auto">
+                    <div className="relative mx-auto w-fit">
                       <Avatar profile={pr} size={64} />
+                      <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-primary-foreground"><Volume2 className="h-3 w-3" /></span>}
                     </div>
                     <div className="mt-2 truncate text-sm font-semibold">{displayName(pr)}</div>
@@ -613,6 +688,7 @@ function RoomPage() {
                   <div key={p.id} className="relative flex flex-col items-center text-center">
                     <div className="relative">
                       <Avatar profile={pr} size={48} />
+                      <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {p.hand_raised && (
                         <span className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-white">
                           <Hand className="h-3 w-3" />
@@ -683,4 +759,20 @@ function SectionHeader({ icon: Icon, title, count }: { icon: React.ComponentType
 
 function Empty({ label }: { label: string }) {
   return <p className="mt-3 text-sm italic text-muted-foreground">{label}</p>;
+}
+
+function ReactionLayer({ reactions }: { reactions: LiveReaction[] }) {
+  if (reactions.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 -top-2 z-10">
+      {reactions.map((r) => (
+        <span
+          key={r.id}
+          className="reaction-float absolute left-1/2 text-3xl drop-shadow-lg"
+        >
+          {r.emoji}
+        </span>
+      ))}
+    </div>
+  );
 }
