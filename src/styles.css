@@ -133,3 +133,10 @@
     linear-gradient(to bottom, oklch(0.46 0.18 262 / 0.06) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+
+@keyframes reaction-float {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+  15%  { opacity: 1; transform: translate(-50%, -10px) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -64px) scale(1); }
+}
+.reaction-float { animation: reaction-float 3.2s ease-out forwards; }
