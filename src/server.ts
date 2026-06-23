@@ -1,6 +1,3 @@
-console.log("SERVER FILE LOADED");
-console.log("🔥 SERVER STARTED ON PORT:", process.env.PORT);
-
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
