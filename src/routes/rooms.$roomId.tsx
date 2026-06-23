@@ -651,8 +651,9 @@ function RoomPage() {
                         <Crown className="mr-0.5 h-2.5 w-2.5" /> Host
                       </Badge>
                     )}
-                    <div className="relative mx-auto">
+                    <div className="relative mx-auto w-fit">
                       <Avatar profile={pr} size={64} />
+                      <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-primary-foreground"><Volume2 className="h-3 w-3" /></span>}
                     </div>
                     <div className="mt-2 truncate text-sm font-semibold">{displayName(pr)}</div>
