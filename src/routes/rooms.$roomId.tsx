@@ -658,23 +658,26 @@ function RoomPage() {
                         <Crown className="mr-0.5 h-2.5 w-2.5" /> Host
                       </Badge>
                     )}
-                    <div className="relative mx-auto w-fit">
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="relative mx-auto block w-fit rounded-full transition hover:opacity-90" aria-label="View profile">
                       <Avatar profile={pr} size={64} />
                       <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-primary-foreground"><Volume2 className="h-3 w-3" /></span>}
-                    </div>
-                    <div className="mt-2 truncate text-sm font-semibold">{displayName(pr)}</div>
+                    </button>
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="mt-2 block w-full truncate text-sm font-semibold hover:underline">{displayName(pr)}</button>
                     <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? "Speaker"}</div>
-                    {isHost && p.user_id !== user?.id && (
-                      <div className="mt-2 flex justify-center gap-1">
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} disabled={actionBusy === `mute-${p.id}`} title="Mute and move to listener">
-                          <MicOff className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`} title="Remove">
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="mt-2 flex justify-center gap-1">
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View profile</Button>
+                      {isHost && p.user_id !== user?.id && (
+                        <>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} disabled={actionBusy === `mute-${p.id}`} title="Mute and move to listener">
+                            <MicOff className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`} title="Remove">
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </Card>
                 );
               })}
