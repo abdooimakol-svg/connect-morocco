@@ -32,6 +32,7 @@ interface LiveReaction {
   emoji: string;
 }
 import type { Room as DbRoom, RoomParticipant } from "@/lib/rooms";
+import { ProfileViewDialog } from "@/components/ProfileViewDialog";
 import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/rooms/$roomId")({
@@ -81,6 +82,10 @@ function RoomPage() {
     [participants, user?.id],
   );
   const canPublish = myParticipant?.role === "host" || myParticipant?.role === "speaker";
+
+  // Profile view dialog
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null);
+  const openProfile = useCallback((uid: string) => setViewProfileId(uid), []);
 
   // Live reactions
   const [reactions, setReactions] = useState<LiveReaction[]>([]);
@@ -617,9 +622,11 @@ function RoomPage() {
                 const pr = profiles[p.user_id];
                 return (
                   <div key={p.id} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-card">
-                    <Avatar profile={pr} size={32} />
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="rounded-full transition hover:opacity-80" aria-label="View profile">
+                      <Avatar profile={pr} size={32} />
+                    </button>
                     <div className="text-sm">
-                      <div className="font-semibold">{displayName(pr)}</div>
+                      <button type="button" onClick={() => openProfile(p.user_id)} className="font-semibold hover:underline">{displayName(pr)}</button>
                       <div className="text-[10px] text-muted-foreground">{pr?.professional_title ?? "Listener"}</div>
                     </div>
                     <Button size="sm" onClick={() => acceptHand(p)} disabled={actionBusy === `accept-${p.id}`} className="ml-2">
@@ -651,23 +658,26 @@ function RoomPage() {
                         <Crown className="mr-0.5 h-2.5 w-2.5" /> Host
                       </Badge>
                     )}
-                    <div className="relative mx-auto w-fit">
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="relative mx-auto block w-fit rounded-full transition hover:opacity-90" aria-label="View profile">
                       <Avatar profile={pr} size={64} />
                       <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-primary-foreground"><Volume2 className="h-3 w-3" /></span>}
-                    </div>
-                    <div className="mt-2 truncate text-sm font-semibold">{displayName(pr)}</div>
+                    </button>
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="mt-2 block w-full truncate text-sm font-semibold hover:underline">{displayName(pr)}</button>
                     <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? "Speaker"}</div>
-                    {isHost && p.user_id !== user?.id && (
-                      <div className="mt-2 flex justify-center gap-1">
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} disabled={actionBusy === `mute-${p.id}`} title="Mute and move to listener">
-                          <MicOff className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`} title="Remove">
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="mt-2 flex justify-center gap-1">
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View profile</Button>
+                      {isHost && p.user_id !== user?.id && (
+                        <>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} disabled={actionBusy === `mute-${p.id}`} title="Mute and move to listener">
+                            <MicOff className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`} title="Remove">
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </Card>
                 );
               })}
@@ -686,7 +696,7 @@ function RoomPage() {
                 const pr = profiles[p.user_id];
                 return (
                   <div key={p.id} className="relative flex flex-col items-center text-center">
-                    <div className="relative">
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="relative rounded-full transition hover:opacity-90" aria-label="View profile">
                       <Avatar profile={pr} size={48} />
                       <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {p.hand_raised && (
@@ -694,13 +704,16 @@ function RoomPage() {
                           <Hand className="h-3 w-3" />
                         </span>
                       )}
+                    </button>
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="mt-1 w-full truncate text-xs font-medium hover:underline">{displayName(pr)}</button>
+                    <div className="mt-1 flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View</Button>
+                      {isHost && (
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`}>
+                          <UserMinus className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
-                    <div className="mt-1 w-full truncate text-xs font-medium">{displayName(pr)}</div>
-                    {isHost && (
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`}>
-                        <UserMinus className="h-3 w-3" />
-                      </Button>
-                    )}
                   </div>
                 );
               })}
@@ -712,6 +725,12 @@ function RoomPage() {
         {/* avoid unused warning */}
         <span className="hidden">{remoteParticipants.length}</span>
       </main>
+
+      <ProfileViewDialog
+        userId={viewProfileId}
+        open={viewProfileId !== null}
+        onOpenChange={(open) => { if (!open) setViewProfileId(null); }}
+      />
 
       <Dialog open={passwordPrompt} onOpenChange={setPasswordPrompt}>
         <DialogContent>
