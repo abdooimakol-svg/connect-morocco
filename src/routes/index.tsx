@@ -293,7 +293,8 @@ function Dashboard() {
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
-    listActiveRooms().then(setRooms).catch(() => setRooms([]));
+    const refresh = () => listActiveRooms().then(setRooms).catch(() => setRooms([]));
+    refresh();
     supabase
       .from("profiles")
       .select("id,first_name,last_name,professional_title,city,skills,avatar_url")
@@ -302,6 +303,13 @@ function Dashboard() {
       .order("created_at", { ascending: false })
       .limit(8)
       .then(({ data }) => setMembers((data ?? []) as MemberLite[]));
+
+    const channel = supabase
+      .channel("rooms-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_participants" }, () => refresh())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (
