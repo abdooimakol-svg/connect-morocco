@@ -140,7 +140,37 @@ function RoomPage() {
   useEffect(() => {
     const channel = supabase
       .channel(`room:${roomId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, async (payload) => {
+        const row = payload.new as unknown as RoomParticipant;
+        // System message: someone joined
+        if (row.user_id !== user?.id) {
+          const { data: pr } = await supabase
+            .from("profiles")
+            .select("first_name,last_name,username")
+            .eq("id", row.user_id)
+            .maybeSingle();
+          const name = [pr?.first_name, pr?.last_name].filter(Boolean).join(" ") || pr?.username || "Someone";
+          toast(`${name} joined the room`, { icon: "👋" });
+        }
+        reloadParticipants();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, () => {
+        reloadParticipants();
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, async (payload) => {
+        const oldRow = payload.old as Partial<RoomParticipant>;
+        // If I was removed by host, force-leave
+        if (oldRow.user_id && user && oldRow.user_id === user.id) {
+          toast.error("You have been removed from this room.");
+          disconnect();
+          setTimeout(() => navigate({ to: "/" }), 800);
+          return;
+        }
+        if (oldRow.user_id) {
+          const pr = profiles[oldRow.user_id];
+          const name = [pr?.first_name, pr?.last_name].filter(Boolean).join(" ") || pr?.username || "A member";
+          toast(`${name} left the room`, { icon: "👋" });
+        }
         reloadParticipants();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (payload) => {
@@ -151,10 +181,15 @@ function RoomPage() {
           setTimeout(() => navigate({ to: "/" }), 1500);
         }
       })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, () => {
+        toast.info("Room has ended");
+        disconnect();
+        setTimeout(() => navigate({ to: "/" }), 800);
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  }, [roomId, user?.id]);
 
 
   // Realtime broadcast channel for emoji reactions (low-latency fanout)
@@ -340,6 +375,30 @@ function RoomPage() {
     navigate({ to: "/" });
   };
 
+  // Self-demote: speaker moves themselves to audience
+  const moveToAudience = async () => {
+    if (!user || !myParticipant) return;
+    if (myParticipant.role !== "speaker") return;
+    setActionBusy("self-demote");
+    try {
+      const lk = lkRoomRef.current;
+      try { await lk?.localParticipant.setMicrophoneEnabled(false); } catch { /* noop */ }
+      setMuted(true);
+      const { error } = await supabase.from("room_participants")
+        .update({ role: "listener", hand_raised: false } as never)
+        .eq("id", myParticipant.id);
+      if (error) throw error;
+      // reconnect without publish permission
+      disconnect();
+      setTimeout(() => { void connectToLivekit(false); }, 150);
+      toast.success("You moved to the audience");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not move to audience");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
   // ---- Host actions ----
   const acceptHand = async (p: RoomParticipant) => {
     if (!room) return;
@@ -411,12 +470,13 @@ function RoomPage() {
     setActionBusy("end-room");
     try {
       await deleteRoomFn({ data: { roomName: room.livekit_room } });
-      const ended_at = new Date().toISOString();
-      const { error } = await supabase.from("rooms").update({ status: "ended", ended_at } as never).eq("id", room.id);
-      if (error) throw error;
-      setRoom({ ...room, status: "ended", ended_at });
+      // Wipe participants first (RLS allows host); trigger then deletes the room + related rows.
+      await supabase.from("room_participants").delete().eq("room_id", room.id);
+      // Belt & braces: explicitly delete in case there were no participants.
+      await supabase.from("rooms").delete().eq("id", room.id);
       disconnect();
       toast.success("Room ended");
+      setTimeout(() => navigate({ to: "/" }), 500);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not end room");
     } finally {
@@ -574,10 +634,18 @@ function RoomPage() {
                 ) : (
                   <>
                     {canPublish ? (
-                      <Button onClick={toggleMute} variant={muted ? "outline" : "default"}>
-                        {muted ? <MicOff className="mr-1 h-4 w-4" /> : <Mic className="mr-1 h-4 w-4" />}
-                        {muted ? "Unmute" : "Mute"}
-                      </Button>
+                      <>
+                        <Button onClick={toggleMute} variant={muted ? "outline" : "default"}>
+                          {muted ? <MicOff className="mr-1 h-4 w-4" /> : <Mic className="mr-1 h-4 w-4" />}
+                          {muted ? "Unmute" : "Mute"}
+                        </Button>
+                        {myParticipant?.role === "speaker" && (
+                          <Button variant="outline" onClick={moveToAudience} disabled={actionBusy === "self-demote"} title="Stop speaking and return to listeners">
+                            {actionBusy === "self-demote" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                            <Users className="mr-1 h-4 w-4" /> Move to audience
+                          </Button>
+                        )}
+                      </>
                     ) : (
                       <Button variant={myParticipant?.hand_raised ? "default" : "outline"} onClick={handleRaiseHand}>
                         <Hand className="mr-1 h-4 w-4" />
