@@ -280,7 +280,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_public_profile: {
+        Args: { _user_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          city: string
+          country: string
+          education: string
+          experience: string
+          first_name: string
+          id: string
+          interests: string[]
+          languages: string[]
+          last_name: string
+          learning_goals: string
+          occupation: string
+          professional_title: string
+          skills: string[]
+          teaching_interests: string
+          username: string
+        }[]
+      }
     }
     Enums: {
       participant_role: "host" | "speaker" | "listener"
