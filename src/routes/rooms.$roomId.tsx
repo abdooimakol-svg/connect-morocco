@@ -375,6 +375,30 @@ function RoomPage() {
     navigate({ to: "/" });
   };
 
+  // Self-demote: speaker moves themselves to audience
+  const moveToAudience = async () => {
+    if (!user || !myParticipant) return;
+    if (myParticipant.role !== "speaker") return;
+    setActionBusy("self-demote");
+    try {
+      const lk = lkRoomRef.current;
+      try { await lk?.localParticipant.setMicrophoneEnabled(false); } catch { /* noop */ }
+      setMuted(true);
+      const { error } = await supabase.from("room_participants")
+        .update({ role: "listener", hand_raised: false } as never)
+        .eq("id", myParticipant.id);
+      if (error) throw error;
+      // reconnect without publish permission
+      disconnect();
+      setTimeout(() => { void connectToLivekit(false); }, 150);
+      toast.success("You moved to the audience");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not move to audience");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
   // ---- Host actions ----
   const acceptHand = async (p: RoomParticipant) => {
     if (!room) return;
