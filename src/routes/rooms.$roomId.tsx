@@ -32,6 +32,7 @@ interface LiveReaction {
   emoji: string;
 }
 import type { Room as DbRoom, RoomParticipant } from "@/lib/rooms";
+import { ProfileViewDialog } from "@/components/ProfileViewDialog";
 import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/rooms/$roomId")({
