@@ -140,7 +140,37 @@ function RoomPage() {
   useEffect(() => {
     const channel = supabase
       .channel(`room:${roomId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, async (payload) => {
+        const row = payload.new as unknown as RoomParticipant;
+        // System message: someone joined
+        if (row.user_id !== user?.id) {
+          const { data: pr } = await supabase
+            .from("profiles")
+            .select("first_name,last_name,username")
+            .eq("id", row.user_id)
+            .maybeSingle();
+          const name = [pr?.first_name, pr?.last_name].filter(Boolean).join(" ") || pr?.username || "Someone";
+          toast(`${name} joined the room`, { icon: "👋" });
+        }
+        reloadParticipants();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, () => {
+        reloadParticipants();
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, async (payload) => {
+        const oldRow = payload.old as Partial<RoomParticipant>;
+        // If I was removed by host, force-leave
+        if (oldRow.user_id && user && oldRow.user_id === user.id) {
+          toast.error("You have been removed from this room.");
+          disconnect();
+          setTimeout(() => navigate({ to: "/" }), 800);
+          return;
+        }
+        if (oldRow.user_id) {
+          const pr = profiles[oldRow.user_id];
+          const name = [pr?.first_name, pr?.last_name].filter(Boolean).join(" ") || pr?.username || "A member";
+          toast(`${name} left the room`, { icon: "👋" });
+        }
         reloadParticipants();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (payload) => {
@@ -151,10 +181,15 @@ function RoomPage() {
           setTimeout(() => navigate({ to: "/" }), 1500);
         }
       })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, () => {
+        toast.info("Room has ended");
+        disconnect();
+        setTimeout(() => navigate({ to: "/" }), 800);
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  }, [roomId, user?.id]);
 
 
   // Realtime broadcast channel for emoji reactions (low-latency fanout)
