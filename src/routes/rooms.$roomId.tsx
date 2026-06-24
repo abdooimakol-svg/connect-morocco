@@ -634,10 +634,18 @@ function RoomPage() {
                 ) : (
                   <>
                     {canPublish ? (
-                      <Button onClick={toggleMute} variant={muted ? "outline" : "default"}>
-                        {muted ? <MicOff className="mr-1 h-4 w-4" /> : <Mic className="mr-1 h-4 w-4" />}
-                        {muted ? "Unmute" : "Mute"}
-                      </Button>
+                      <>
+                        <Button onClick={toggleMute} variant={muted ? "outline" : "default"}>
+                          {muted ? <MicOff className="mr-1 h-4 w-4" /> : <Mic className="mr-1 h-4 w-4" />}
+                          {muted ? "Unmute" : "Mute"}
+                        </Button>
+                        {myParticipant?.role === "speaker" && (
+                          <Button variant="outline" onClick={moveToAudience} disabled={actionBusy === "self-demote"} title="Stop speaking and return to listeners">
+                            {actionBusy === "self-demote" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                            <Users className="mr-1 h-4 w-4" /> Move to audience
+                          </Button>
+                        )}
+                      </>
                     ) : (
                       <Button variant={myParticipant?.hand_raised ? "default" : "outline"} onClick={handleRaiseHand}>
                         <Hand className="mr-1 h-4 w-4" />
