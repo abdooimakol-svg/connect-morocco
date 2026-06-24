@@ -696,7 +696,7 @@ function RoomPage() {
                 const pr = profiles[p.user_id];
                 return (
                   <div key={p.id} className="relative flex flex-col items-center text-center">
-                    <div className="relative">
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="relative rounded-full transition hover:opacity-90" aria-label="View profile">
                       <Avatar profile={pr} size={48} />
                       <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {p.hand_raised && (
@@ -704,13 +704,16 @@ function RoomPage() {
                           <Hand className="h-3 w-3" />
                         </span>
                       )}
+                    </button>
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="mt-1 w-full truncate text-xs font-medium hover:underline">{displayName(pr)}</button>
+                    <div className="mt-1 flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View</Button>
+                      {isHost && (
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`}>
+                          <UserMinus className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
-                    <div className="mt-1 w-full truncate text-xs font-medium">{displayName(pr)}</div>
-                    {isHost && (
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`}>
-                        <UserMinus className="h-3 w-3" />
-                      </Button>
-                    )}
                   </div>
                 );
               })}
@@ -722,6 +725,12 @@ function RoomPage() {
         {/* avoid unused warning */}
         <span className="hidden">{remoteParticipants.length}</span>
       </main>
+
+      <ProfileViewDialog
+        userId={viewProfileId}
+        open={viewProfileId !== null}
+        onOpenChange={(open) => { if (!open) setViewProfileId(null); }}
+      />
 
       <Dialog open={passwordPrompt} onOpenChange={setPasswordPrompt}>
         <DialogContent>
