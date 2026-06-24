@@ -622,9 +622,11 @@ function RoomPage() {
                 const pr = profiles[p.user_id];
                 return (
                   <div key={p.id} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-card">
-                    <Avatar profile={pr} size={32} />
+                    <button type="button" onClick={() => openProfile(p.user_id)} className="rounded-full transition hover:opacity-80" aria-label="View profile">
+                      <Avatar profile={pr} size={32} />
+                    </button>
                     <div className="text-sm">
-                      <div className="font-semibold">{displayName(pr)}</div>
+                      <button type="button" onClick={() => openProfile(p.user_id)} className="font-semibold hover:underline">{displayName(pr)}</button>
                       <div className="text-[10px] text-muted-foreground">{pr?.professional_title ?? "Listener"}</div>
                     </div>
                     <Button size="sm" onClick={() => acceptHand(p)} disabled={actionBusy === `accept-${p.id}`} className="ml-2">
