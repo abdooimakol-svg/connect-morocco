@@ -470,12 +470,13 @@ function RoomPage() {
     setActionBusy("end-room");
     try {
       await deleteRoomFn({ data: { roomName: room.livekit_room } });
-      const ended_at = new Date().toISOString();
-      const { error } = await supabase.from("rooms").update({ status: "ended", ended_at } as never).eq("id", room.id);
-      if (error) throw error;
-      setRoom({ ...room, status: "ended", ended_at });
+      // Wipe participants first (RLS allows host); trigger then deletes the room + related rows.
+      await supabase.from("room_participants").delete().eq("room_id", room.id);
+      // Belt & braces: explicitly delete in case there were no participants.
+      await supabase.from("rooms").delete().eq("id", room.id);
       disconnect();
       toast.success("Room ended");
+      setTimeout(() => navigate({ to: "/" }), 500);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not end room");
     } finally {
