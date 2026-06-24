@@ -83,6 +83,10 @@ function RoomPage() {
   );
   const canPublish = myParticipant?.role === "host" || myParticipant?.role === "speaker";
 
+  // Profile view dialog
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null);
+  const openProfile = useCallback((uid: string) => setViewProfileId(uid), []);
+
   // Live reactions
   const [reactions, setReactions] = useState<LiveReaction[]>([]);
   const reactionChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
