@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.cleanup_empty_room() FROM PUBLIC, anon, authenticated;
