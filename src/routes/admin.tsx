@@ -9,9 +9,15 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Check, X, Eye, Users, Clock, ShieldCheck, ShieldX, Search,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteUserAccount } from "@/lib/admin.functions";
+import {
+  Check, X, Eye, Users, Clock, ShieldCheck, ShieldX, Search, Trash2,
   MapPin, Mail, Phone, Briefcase, GraduationCap, Globe, FileImage,
 } from "lucide-react";
 
