@@ -94,6 +94,21 @@ function UserCard({ p, onChange, onDeleted }: { p: Profile; onChange: () => void
     onChange();
   };
 
+  const doDelete = async () => {
+    setBusy(true);
+    try {
+      const res = await deleteFn({ data: { userId: p.id } });
+      toast.success("User deleted successfully" + (res?.authDeleted === false ? " (auth account retained)" : ""));
+      setConfirmDelete(false);
+      onDeleted(p.id);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete user";
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Card className="overflow-hidden shadow-card transition-all hover:shadow-elevated">
       <div className="flex items-start gap-4 p-5">
