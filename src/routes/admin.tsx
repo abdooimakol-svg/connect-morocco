@@ -9,9 +9,15 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Check, X, Eye, Users, Clock, ShieldCheck, ShieldX, Search,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteUserAccount } from "@/lib/admin.functions";
+import {
+  Check, X, Eye, Users, Clock, ShieldCheck, ShieldX, Search, Trash2,
   MapPin, Mail, Phone, Briefcase, GraduationCap, Globe, FileImage,
 } from "lucide-react";
 
@@ -57,12 +63,14 @@ function StatCard({ icon: Icon, label, value, color }: {
   );
 }
 
-function UserCard({ p, onChange }: { p: Profile; onChange: () => void }) {
+function UserCard({ p, onChange, onDeleted }: { p: Profile; onChange: () => void; onDeleted: (id: string) => void }) {
   const avatar = useSignedUrl("avatars", p.avatar_url);
   const cin = useSignedUrl("cins", p.cin_url);
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [reason, setReason] = useState(p.rejection_reason ?? "");
   const [busy, setBusy] = useState(false);
+  const deleteFn = useServerFn(deleteUserAccount);
 
   const approve = async () => {
     setBusy(true);
@@ -84,6 +92,21 @@ function UserCard({ p, onChange }: { p: Profile; onChange: () => void }) {
     toast.success("Rejected");
     setOpen(false);
     onChange();
+  };
+
+  const doDelete = async () => {
+    setBusy(true);
+    try {
+      const res = await deleteFn({ data: { userId: p.id } });
+      toast.success("User deleted successfully" + (res?.authDeleted === false ? " (auth account retained)" : ""));
+      setConfirmDelete(false);
+      onDeleted(p.id);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete user";
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -150,6 +173,38 @@ function UserCard({ p, onChange }: { p: Profile; onChange: () => void }) {
             </Button>
           </DialogContent>
         </Dialog>
+        <Button
+          size="sm"
+          onClick={() => setConfirmDelete(true)}
+          disabled={busy}
+          className="rounded-lg bg-destructive text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 hover:shadow-md"
+        >
+          <Trash2 className="mr-1 h-4 w-4" /> Delete
+        </Button>
+        <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to permanently delete{" "}
+                <span className="font-semibold text-foreground">
+                  {p.first_name} {p.last_name}
+                </span>
+                ? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); doDelete(); }}
+                disabled={busy}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                <Trash2 className="mr-1 h-4 w-4" /> Permanently Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <DetailDialog p={p} avatar={avatar} cin={cin} />
       </div>
     </Card>
@@ -351,7 +406,14 @@ function AdminPage() {
               <p className="text-sm text-muted-foreground">Try a different filter or search.</p>
             </Card>
           )}
-          {shown.map((p) => <UserCard key={p.id} p={p} onChange={load} />)}
+          {shown.map((p) => (
+            <UserCard
+              key={p.id}
+              p={p}
+              onChange={load}
+              onDeleted={(id) => setProfiles((prev) => prev.filter((x) => x.id !== id))}
+            />
+          ))}
         </div>
       </main>
     </div>
