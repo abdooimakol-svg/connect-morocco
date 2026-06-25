@@ -82,6 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "SkillBridge Morocco" },
       { property: "og:description", content: "Connect, learn and teach skills across Morocco." },
       { property: "og:type", content: "website" },
+      { name: "google-site-verification", content: "8g4qvGxmvYcZQVTb0iIAoE_gEu3_1ovN7EIIzMhUsO8" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -90,6 +91,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        async: true,
+        src: "https://www.googletagmanager.com/gtag/js?id=G-1XHCQT0DC8",
+      },
+      {
+        children: `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-1XHCQT0DC8');
+        `,
       },
     ],
   }),
