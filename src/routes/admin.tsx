@@ -173,6 +173,38 @@ function UserCard({ p, onChange, onDeleted }: { p: Profile; onChange: () => void
             </Button>
           </DialogContent>
         </Dialog>
+        <Button
+          size="sm"
+          onClick={() => setConfirmDelete(true)}
+          disabled={busy}
+          className="rounded-lg bg-destructive text-destructive-foreground shadow-sm transition-colors hover:bg-destructive/90 hover:shadow-md"
+        >
+          <Trash2 className="mr-1 h-4 w-4" /> Delete
+        </Button>
+        <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to permanently delete{" "}
+                <span className="font-semibold text-foreground">
+                  {p.first_name} {p.last_name}
+                </span>
+                ? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); doDelete(); }}
+                disabled={busy}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                <Trash2 className="mr-1 h-4 w-4" /> Permanently Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <DetailDialog p={p} avatar={avatar} cin={cin} />
       </div>
     </Card>
