@@ -63,12 +63,14 @@ function StatCard({ icon: Icon, label, value, color }: {
   );
 }
 
-function UserCard({ p, onChange }: { p: Profile; onChange: () => void }) {
+function UserCard({ p, onChange, onDeleted }: { p: Profile; onChange: () => void; onDeleted: (id: string) => void }) {
   const avatar = useSignedUrl("avatars", p.avatar_url);
   const cin = useSignedUrl("cins", p.cin_url);
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [reason, setReason] = useState(p.rejection_reason ?? "");
   const [busy, setBusy] = useState(false);
+  const deleteFn = useServerFn(deleteUserAccount);
 
   const approve = async () => {
     setBusy(true);
