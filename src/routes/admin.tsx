@@ -406,7 +406,14 @@ function AdminPage() {
               <p className="text-sm text-muted-foreground">Try a different filter or search.</p>
             </Card>
           )}
-          {shown.map((p) => <UserCard key={p.id} p={p} onChange={load} />)}
+          {shown.map((p) => (
+            <UserCard
+              key={p.id}
+              p={p}
+              onChange={load}
+              onDeleted={(id) => setProfiles((prev) => prev.filter((x) => x.id !== id))}
+            />
+          ))}
         </div>
       </main>
     </div>
