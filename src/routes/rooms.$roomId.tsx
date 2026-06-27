@@ -370,6 +370,11 @@ function RoomPage() {
 
   const leaveRoom = async () => {
     if (!user) return;
+    // Host leaving = end room for everyone
+    if (isHost && room) {
+      await endRoom();
+      return;
+    }
     disconnect();
     if (myParticipant) {
       await supabase.from("room_participants").delete().eq("id", myParticipant.id);
@@ -380,7 +385,7 @@ function RoomPage() {
   // Self-demote: speaker moves themselves to audience
   const moveToAudience = async () => {
     if (!user || !myParticipant) return;
-    if (myParticipant.role !== "speaker") return;
+    if (myParticipant.role !== "speaker" && myParticipant.role !== "moderator") return;
     setActionBusy("self-demote");
     try {
       const lk = lkRoomRef.current;
@@ -396,6 +401,43 @@ function RoomPage() {
       toast.success("You moved to the audience");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not move to audience");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  // ---- Moderator management (host only) ----
+  const promoteToModerator = async (p: RoomParticipant) => {
+    if (!isHost || !room) return;
+    setActionBusy(`mod-${p.id}`);
+    try {
+      const { error } = await supabase.from("room_participants")
+        .update({ role: "moderator", hand_raised: false } as never)
+        .eq("id", p.id);
+      if (error) throw error;
+      // Give LiveKit publish permission
+      await promoteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      await reloadParticipants();
+      toast.success("Promoted to moderator");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not promote moderator");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const demoteModerator = async (p: RoomParticipant) => {
+    if (!isHost) return;
+    setActionBusy(`mod-${p.id}`);
+    try {
+      const { error } = await supabase.from("room_participants")
+        .update({ role: "listener" } as never)
+        .eq("id", p.id);
+      if (error) throw error;
+      await reloadParticipants();
+      toast.success("Moderator removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not demote moderator");
     } finally {
       setActionBusy(null);
     }
