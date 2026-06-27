@@ -37,6 +37,28 @@ async function assertRoomHost(supabase: typeof import("@/integrations/supabase/c
   return data;
 }
 
+async function assertRoomModerator(supabase: typeof import("@/integrations/supabase/client").supabase, userId: string, roomName: string) {
+  const { data, error } = await supabase
+    .from("rooms")
+    .select("id,host_id,livekit_room")
+    .eq("livekit_room", roomName)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Room not found");
+  if (data.host_id === userId) return data;
+  const { data: me } = await supabase
+    .from("room_participants")
+    .select("role")
+    .eq("room_id", data.id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!me || (me as { role: string }).role !== "moderator") {
+    throw new Error("Only the host or a moderator can do this");
+  }
+  return data;
+}
+
+
 export const getLivekitToken = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => InputSchema.parse(input))
