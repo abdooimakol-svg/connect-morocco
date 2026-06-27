@@ -592,7 +592,7 @@ function RoomPage() {
     );
   }
 
-  const speakers = participants.filter((p) => p.role === "host" || p.role === "speaker");
+  const speakers = participants.filter((p) => p.role === "host" || p.role === "moderator" || p.role === "speaker");
   const listeners = participants.filter((p) => p.role === "listener");
   const handRaises = participants.filter((p) => p.hand_raised && p.role === "listener");
 
