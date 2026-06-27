@@ -330,7 +330,7 @@ function RoomPage() {
       }
       await reloadParticipants();
     }
-    await connectToLivekit(myRole === "host" || myRole === "speaker");
+    await connectToLivekit(myRole === "host" || myRole === "moderator" || myRole === "speaker");
   }, [user, room, myParticipant, connectToLivekit, reloadParticipants]);
 
   const handleJoin = async () => {
