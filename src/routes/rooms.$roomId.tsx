@@ -161,7 +161,14 @@ function RoomPage() {
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, async (payload) => {
         const oldRow = payload.old as Partial<RoomParticipant>;
-        // If I was removed by host, force-leave
+        // Host's row deleted -> room is closing for everyone
+        if (oldRow.user_id && room && oldRow.user_id === room.host_id) {
+          toast.info("This room has been closed by the host.");
+          disconnect();
+          setTimeout(() => navigate({ to: "/" }), 800);
+          return;
+        }
+        // If I was removed by host/moderator, force-leave
         if (oldRow.user_id && user && oldRow.user_id === user.id) {
           toast.error("You have been removed from this room.");
           disconnect();
@@ -171,20 +178,20 @@ function RoomPage() {
         if (oldRow.user_id) {
           const pr = profiles[oldRow.user_id];
           const name = [pr?.first_name, pr?.last_name].filter(Boolean).join(" ") || pr?.username || "A member";
-          toast(`${name} left the room`, { icon: "👋" });
+          toast(`${name} was removed from the room.`, { icon: "👋" });
         }
         reloadParticipants();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (payload) => {
         setRoom(payload.new as unknown as DbRoom);
         if ((payload.new as unknown as DbRoom).status === "ended") {
-          toast.info("Room has ended");
+          toast.info("This room has been closed by the host.");
           disconnect();
           setTimeout(() => navigate({ to: "/" }), 1500);
         }
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, () => {
-        toast.info("Room has ended");
+        toast.info("This room has been closed by the host.");
         disconnect();
         setTimeout(() => navigate({ to: "/" }), 800);
       })
