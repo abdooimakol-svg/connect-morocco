@@ -729,8 +729,8 @@ function RoomPage() {
           </div>
         </Card>
 
-        {/* Hand raise requests (host only) */}
-        {isHost && handRaises.length > 0 && (
+        {/* Hand raise requests (host or moderator) */}
+        {canModerate && handRaises.length > 0 && (
           <Card className="mt-4 border-amber-300/40 bg-amber-50/40 p-4 dark:bg-amber-950/20">
             <div className="flex items-center gap-2">
               <Hand className="h-4 w-4 text-amber-600" />
@@ -772,21 +772,17 @@ function RoomPage() {
                 const speaking = speakingIds.has(p.user_id);
                 return (
                   <Card key={p.id} className={`relative p-4 text-center transition-all ${speaking ? "ring-2 ring-primary shadow-glow" : ""}`}>
-                    {p.role === "host" && (
-                      <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-primary text-[10px]">
-                        <Crown className="mr-0.5 h-2.5 w-2.5" /> Host
-                      </Badge>
-                    )}
+                    <RoleBadge role={p.role} />
                     <button type="button" onClick={() => openProfile(p.user_id)} className="relative mx-auto block w-fit rounded-full transition hover:opacity-90" aria-label="View profile">
                       <Avatar profile={pr} size={64} />
                       <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-primary-foreground"><Volume2 className="h-3 w-3" /></span>}
                     </button>
                     <button type="button" onClick={() => openProfile(p.user_id)} className="mt-2 block w-full truncate text-sm font-semibold hover:underline">{displayName(pr)}</button>
-                    <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? "Speaker"}</div>
-                    <div className="mt-2 flex justify-center gap-1">
+                    <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? roleLabel(p.role)}</div>
+                    <div className="mt-2 flex flex-wrap justify-center gap-1">
                       <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View profile</Button>
-                      {isHost && p.user_id !== user?.id && (
+                      {canModerate && p.user_id !== user?.id && p.role !== "host" && (
                         <>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} disabled={actionBusy === `mute-${p.id}`} title="Mute and move to listener">
                             <MicOff className="h-3.5 w-3.5" />
@@ -796,6 +792,16 @@ function RoomPage() {
                           </Button>
                         </>
                       )}
+                      {isHost && p.user_id !== user?.id && p.role === "speaker" && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => promoteToModerator(p)} disabled={actionBusy === `mod-${p.id}`} title="Promote to moderator">
+                          <Shield className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {isHost && p.user_id !== user?.id && p.role === "moderator" && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => demoteModerator(p)} disabled={actionBusy === `mod-${p.id}`} title="Remove moderator">
+                          <Shield className="h-3.5 w-3.5 line-through opacity-60" />
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );
@@ -803,6 +809,7 @@ function RoomPage() {
             </div>
           )}
         </section>
+
 
         {/* Listeners */}
         <section className="mt-8">
