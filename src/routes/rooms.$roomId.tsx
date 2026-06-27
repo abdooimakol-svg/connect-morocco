@@ -315,7 +315,7 @@ function RoomPage() {
     }
     if (room.status === "ended") { toast.error("Room has ended"); return; }
 
-    let myRole: "host" | "speaker" | "listener" = myParticipant?.role
+    let myRole: RoomParticipant["role"] = myParticipant?.role
       ?? (room.host_id === user.id ? "host" : "listener");
 
     if (!myParticipant) {
