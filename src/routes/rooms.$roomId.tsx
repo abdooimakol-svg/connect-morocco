@@ -832,10 +832,11 @@ function RoomPage() {
                       )}
                     </button>
                     <button type="button" onClick={() => openProfile(p.user_id)} className="mt-1 w-full truncate text-xs font-medium hover:underline">{displayName(pr)}</button>
+                    <div className="text-[10px] text-muted-foreground">🎧 Listener</div>
                     <div className="mt-1 flex items-center gap-1">
                       <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View</Button>
-                      {isHost && (
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`}>
+                      {canModerate && p.user_id !== user?.id && (
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`} title="Remove">
                           <UserMinus className="h-3 w-3" />
                         </Button>
                       )}
