@@ -142,7 +142,7 @@ export const removeLivekitParticipant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => HostActionSchema.required({ targetIdentity: true }).parse(input))
   .handler(async ({ data, context }) => {
-    await assertRoomHost(context.supabase, context.userId, data.roomName);
+    await assertRoomModerator(context.supabase, context.userId, data.roomName);
     const svc = await createRoomService();
     try {
       await svc.removeParticipant(data.roomName, data.targetIdentity!);
