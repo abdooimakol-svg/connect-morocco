@@ -907,6 +907,31 @@ function Empty({ label }: { label: string }) {
   return <p className="mt-3 text-sm italic text-muted-foreground">{label}</p>;
 }
 
+function roleLabel(role: RoomParticipant["role"]) {
+  switch (role) {
+    case "host": return "Host";
+    case "moderator": return "Moderator";
+    case "speaker": return "Speaker";
+    default: return "Listener";
+  }
+}
+
+function RoleBadge({ role }: { role: RoomParticipant["role"] }) {
+  const map: Record<RoomParticipant["role"], { label: string; emoji: string; cls: string }> = {
+    host:      { label: "Host",      emoji: "👑", cls: "bg-gradient-primary text-primary-foreground" },
+    moderator: { label: "Moderator", emoji: "🛡️", cls: "bg-blue-600 text-white" },
+    speaker:   { label: "Speaker",   emoji: "🎤", cls: "bg-emerald-600 text-white" },
+    listener:  { label: "Listener",  emoji: "🎧", cls: "bg-muted text-foreground" },
+  };
+  const meta = map[role];
+  return (
+    <Badge className={`absolute -top-2 left-1/2 -translate-x-1/2 rounded-full text-[10px] ${meta.cls}`}>
+      <span className="mr-0.5">{meta.emoji}</span> {meta.label}
+    </Badge>
+  );
+}
+
+
 function ReactionLayer({ reactions }: { reactions: LiveReaction[] }) {
   if (reactions.length === 0) return null;
   return (
