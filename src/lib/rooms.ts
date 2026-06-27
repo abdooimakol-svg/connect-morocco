@@ -22,7 +22,7 @@ export interface RoomParticipant {
   id: string;
   room_id: string;
   user_id: string;
-  role: "host" | "speaker" | "listener";
+  role: "host" | "moderator" | "speaker" | "listener";
   hand_raised: boolean;
   joined_at: string;
 }
