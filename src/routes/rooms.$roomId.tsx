@@ -81,7 +81,9 @@ function RoomPage() {
     () => participants.find((p) => p.user_id === user?.id) ?? null,
     [participants, user?.id],
   );
-  const canPublish = myParticipant?.role === "host" || myParticipant?.role === "speaker";
+  const isModerator = myParticipant?.role === "moderator";
+  const canModerate = isHost || isModerator;
+  const canPublish = myParticipant?.role === "host" || myParticipant?.role === "moderator" || myParticipant?.role === "speaker";
 
   // Profile view dialog
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
