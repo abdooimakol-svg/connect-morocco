@@ -81,7 +81,9 @@ function RoomPage() {
     () => participants.find((p) => p.user_id === user?.id) ?? null,
     [participants, user?.id],
   );
-  const canPublish = myParticipant?.role === "host" || myParticipant?.role === "speaker";
+  const isModerator = myParticipant?.role === "moderator";
+  const canModerate = isHost || isModerator;
+  const canPublish = myParticipant?.role === "host" || myParticipant?.role === "moderator" || myParticipant?.role === "speaker";
 
   // Profile view dialog
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
@@ -159,7 +161,14 @@ function RoomPage() {
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` }, async (payload) => {
         const oldRow = payload.old as Partial<RoomParticipant>;
-        // If I was removed by host, force-leave
+        // Host's row deleted -> room is closing for everyone
+        if (oldRow.user_id && room && oldRow.user_id === room.host_id) {
+          toast.info("This room has been closed by the host.");
+          disconnect();
+          setTimeout(() => navigate({ to: "/" }), 800);
+          return;
+        }
+        // If I was removed by host/moderator, force-leave
         if (oldRow.user_id && user && oldRow.user_id === user.id) {
           toast.error("You have been removed from this room.");
           disconnect();
@@ -169,20 +178,20 @@ function RoomPage() {
         if (oldRow.user_id) {
           const pr = profiles[oldRow.user_id];
           const name = [pr?.first_name, pr?.last_name].filter(Boolean).join(" ") || pr?.username || "A member";
-          toast(`${name} left the room`, { icon: "👋" });
+          toast(`${name} was removed from the room.`, { icon: "👋" });
         }
         reloadParticipants();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, (payload) => {
         setRoom(payload.new as unknown as DbRoom);
         if ((payload.new as unknown as DbRoom).status === "ended") {
-          toast.info("Room has ended");
+          toast.info("This room has been closed by the host.");
           disconnect();
           setTimeout(() => navigate({ to: "/" }), 1500);
         }
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, () => {
-        toast.info("Room has ended");
+        toast.info("This room has been closed by the host.");
         disconnect();
         setTimeout(() => navigate({ to: "/" }), 800);
       })
@@ -315,7 +324,7 @@ function RoomPage() {
     }
     if (room.status === "ended") { toast.error("Room has ended"); return; }
 
-    let myRole: "host" | "speaker" | "listener" = myParticipant?.role
+    let myRole: RoomParticipant["role"] = myParticipant?.role
       ?? (room.host_id === user.id ? "host" : "listener");
 
     if (!myParticipant) {
@@ -328,7 +337,7 @@ function RoomPage() {
       }
       await reloadParticipants();
     }
-    await connectToLivekit(myRole === "host" || myRole === "speaker");
+    await connectToLivekit(myRole === "host" || myRole === "moderator" || myRole === "speaker");
   }, [user, room, myParticipant, connectToLivekit, reloadParticipants]);
 
   const handleJoin = async () => {
@@ -368,6 +377,11 @@ function RoomPage() {
 
   const leaveRoom = async () => {
     if (!user) return;
+    // Host leaving = end room for everyone
+    if (isHost && room) {
+      await endRoom();
+      return;
+    }
     disconnect();
     if (myParticipant) {
       await supabase.from("room_participants").delete().eq("id", myParticipant.id);
@@ -378,7 +392,7 @@ function RoomPage() {
   // Self-demote: speaker moves themselves to audience
   const moveToAudience = async () => {
     if (!user || !myParticipant) return;
-    if (myParticipant.role !== "speaker") return;
+    if (myParticipant.role !== "speaker" && myParticipant.role !== "moderator") return;
     setActionBusy("self-demote");
     try {
       const lk = lkRoomRef.current;
@@ -394,6 +408,43 @@ function RoomPage() {
       toast.success("You moved to the audience");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not move to audience");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  // ---- Moderator management (host only) ----
+  const promoteToModerator = async (p: RoomParticipant) => {
+    if (!isHost || !room) return;
+    setActionBusy(`mod-${p.id}`);
+    try {
+      const { error } = await supabase.from("room_participants")
+        .update({ role: "moderator", hand_raised: false } as never)
+        .eq("id", p.id);
+      if (error) throw error;
+      // Give LiveKit publish permission
+      await promoteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      await reloadParticipants();
+      toast.success("Promoted to moderator");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not promote moderator");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const demoteModerator = async (p: RoomParticipant) => {
+    if (!isHost) return;
+    setActionBusy(`mod-${p.id}`);
+    try {
+      const { error } = await supabase.from("room_participants")
+        .update({ role: "listener" } as never)
+        .eq("id", p.id);
+      if (error) throw error;
+      await reloadParticipants();
+      toast.success("Moderator removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not demote moderator");
     } finally {
       setActionBusy(null);
     }
@@ -541,7 +592,7 @@ function RoomPage() {
     );
   }
 
-  const speakers = participants.filter((p) => p.role === "host" || p.role === "speaker");
+  const speakers = participants.filter((p) => p.role === "host" || p.role === "moderator" || p.role === "speaker");
   const listeners = participants.filter((p) => p.role === "listener");
   const handRaises = participants.filter((p) => p.hand_raised && p.role === "listener");
 
@@ -678,8 +729,8 @@ function RoomPage() {
           </div>
         </Card>
 
-        {/* Hand raise requests (host only) */}
-        {isHost && handRaises.length > 0 && (
+        {/* Hand raise requests (host or moderator) */}
+        {canModerate && handRaises.length > 0 && (
           <Card className="mt-4 border-amber-300/40 bg-amber-50/40 p-4 dark:bg-amber-950/20">
             <div className="flex items-center gap-2">
               <Hand className="h-4 w-4 text-amber-600" />
@@ -721,21 +772,17 @@ function RoomPage() {
                 const speaking = speakingIds.has(p.user_id);
                 return (
                   <Card key={p.id} className={`relative p-4 text-center transition-all ${speaking ? "ring-2 ring-primary shadow-glow" : ""}`}>
-                    {p.role === "host" && (
-                      <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gradient-primary text-[10px]">
-                        <Crown className="mr-0.5 h-2.5 w-2.5" /> Host
-                      </Badge>
-                    )}
+                    <RoleBadge role={p.role} />
                     <button type="button" onClick={() => openProfile(p.user_id)} className="relative mx-auto block w-fit rounded-full transition hover:opacity-90" aria-label="View profile">
                       <Avatar profile={pr} size={64} />
                       <ReactionLayer reactions={reactions.filter((r) => r.userId === p.user_id)} />
                       {speaking && <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-success text-primary-foreground"><Volume2 className="h-3 w-3" /></span>}
                     </button>
                     <button type="button" onClick={() => openProfile(p.user_id)} className="mt-2 block w-full truncate text-sm font-semibold hover:underline">{displayName(pr)}</button>
-                    <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? "Speaker"}</div>
-                    <div className="mt-2 flex justify-center gap-1">
+                    <div className="truncate text-[10px] text-muted-foreground">{pr?.professional_title ?? roleLabel(p.role)}</div>
+                    <div className="mt-2 flex flex-wrap justify-center gap-1">
                       <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View profile</Button>
-                      {isHost && p.user_id !== user?.id && (
+                      {canModerate && p.user_id !== user?.id && p.role !== "host" && (
                         <>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => muteParticipant(p)} disabled={actionBusy === `mute-${p.id}`} title="Mute and move to listener">
                             <MicOff className="h-3.5 w-3.5" />
@@ -745,6 +792,16 @@ function RoomPage() {
                           </Button>
                         </>
                       )}
+                      {isHost && p.user_id !== user?.id && p.role === "speaker" && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => promoteToModerator(p)} disabled={actionBusy === `mod-${p.id}`} title="Promote to moderator">
+                          <Shield className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {isHost && p.user_id !== user?.id && p.role === "moderator" && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => demoteModerator(p)} disabled={actionBusy === `mod-${p.id}`} title="Remove moderator">
+                          <Shield className="h-3.5 w-3.5 line-through opacity-60" />
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );
@@ -752,6 +809,7 @@ function RoomPage() {
             </div>
           )}
         </section>
+
 
         {/* Listeners */}
         <section className="mt-8">
@@ -774,10 +832,11 @@ function RoomPage() {
                       )}
                     </button>
                     <button type="button" onClick={() => openProfile(p.user_id)} className="mt-1 w-full truncate text-xs font-medium hover:underline">{displayName(pr)}</button>
+                    <div className="text-[10px] text-muted-foreground">🎧 Listener</div>
                     <div className="mt-1 flex items-center gap-1">
                       <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => openProfile(p.user_id)}>View</Button>
-                      {isHost && (
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`}>
+                      {canModerate && p.user_id !== user?.id && (
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeParticipant(p)} disabled={actionBusy === `remove-${p.id}`} title="Remove">
                           <UserMinus className="h-3 w-3" />
                         </Button>
                       )}
@@ -847,6 +906,31 @@ function SectionHeader({ icon: Icon, title, count }: { icon: React.ComponentType
 function Empty({ label }: { label: string }) {
   return <p className="mt-3 text-sm italic text-muted-foreground">{label}</p>;
 }
+
+function roleLabel(role: RoomParticipant["role"]) {
+  switch (role) {
+    case "host": return "Host";
+    case "moderator": return "Moderator";
+    case "speaker": return "Speaker";
+    default: return "Listener";
+  }
+}
+
+function RoleBadge({ role }: { role: RoomParticipant["role"] }) {
+  const map: Record<RoomParticipant["role"], { label: string; emoji: string; cls: string }> = {
+    host:      { label: "Host",      emoji: "👑", cls: "bg-gradient-primary text-primary-foreground" },
+    moderator: { label: "Moderator", emoji: "🛡️", cls: "bg-blue-600 text-white" },
+    speaker:   { label: "Speaker",   emoji: "🎤", cls: "bg-emerald-600 text-white" },
+    listener:  { label: "Listener",  emoji: "🎧", cls: "bg-muted text-foreground" },
+  };
+  const meta = map[role];
+  return (
+    <Badge className={`absolute -top-2 left-1/2 -translate-x-1/2 rounded-full text-[10px] ${meta.cls}`}>
+      <span className="mr-0.5">{meta.emoji}</span> {meta.label}
+    </Badge>
+  );
+}
+
 
 function ReactionLayer({ reactions }: { reactions: LiveReaction[] }) {
   if (reactions.length === 0) return null;

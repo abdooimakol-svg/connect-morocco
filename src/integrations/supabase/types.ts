@@ -329,9 +329,13 @@ export type Database = {
           username: string
         }[]
       }
+      is_room_moderator: {
+        Args: { _room_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      participant_role: "host" | "speaker" | "listener"
+      participant_role: "host" | "speaker" | "listener" | "moderator"
       profile_status: "pending" | "approved" | "rejected"
       room_status: "active" | "locked" | "ended"
     }
@@ -461,7 +465,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      participant_role: ["host", "speaker", "listener"],
+      participant_role: ["host", "speaker", "listener", "moderator"],
       profile_status: ["pending", "approved", "rejected"],
       room_status: ["active", "locked", "ended"],
     },
