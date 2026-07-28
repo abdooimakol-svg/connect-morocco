@@ -25,7 +25,7 @@ function RejectedPage() {
         <Card className="mt-6 w-full p-8 text-center shadow-elevated">
           <h1 className="text-2xl font-extrabold tracking-tight">We couldn't verify your application</h1>
           <p className="mt-2 text-muted-foreground">
-            Your account verification was reviewed and not approved by the SkillBridge team.
+            Your account verification was reviewed and not approved by the SkillLoom team.
           </p>
           {profile?.rejection_reason && (
             <div className="mt-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-left">

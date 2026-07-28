@@ -40,7 +40,7 @@ export function Navbar() {
             <span className="text-sm font-black tracking-tight">SB</span>
           </span>
           <span className="hidden text-[15px] sm:inline">
-            SkillBridge<span className="text-primary"> Morocco</span>
+            SkillLoom<span className="text-primary"> Morocco</span>
           </span>
         </Link>
 

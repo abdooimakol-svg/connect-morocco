@@ -18,7 +18,7 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SkillBridge Morocco — Learn, Teach & Connect" },
+      { title: "SkillLoom Morocco — Learn, Teach & Connect" },
       { name: "description", content: "Morocco's professional learning and mentorship community. Join voice rooms, find mentors, and share your skills with verified members." },
     ],
   }),
@@ -62,7 +62,7 @@ function Landing() {
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Button asChild size="lg" className="h-12 rounded-xl bg-gradient-primary px-6 text-base font-semibold shadow-glow hover:opacity-95">
-                <Link to="/auth">Join SkillBridge <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+                <Link to="/auth">Join SkillLoom <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-12 rounded-xl px-6 text-base font-semibold">
                 <Link to="/auth">I already have an account</Link>
@@ -103,7 +103,7 @@ function Landing() {
           <div className="mx-auto max-w-2xl text-center">
             <Badge variant="outline" className="mb-3 rounded-full">What you can do</Badge>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">A focused space to grow your skills</h2>
-            <p className="mt-3 text-muted-foreground">Four things SkillBridge does exceptionally well.</p>
+            <p className="mt-3 text-muted-foreground">Four things SkillLoom does exceptionally well.</p>
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <FeatureCard icon={BookOpen} title="Learn from experts" desc="Follow professionals across tech, design, business, languages and more." />
@@ -147,9 +147,9 @@ function Landing() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-primary text-xs font-black text-primary-foreground">SB</span>
-            SkillBridge<span className="text-primary">Morocco</span>
+            SkillLoom<span className="text-primary">Morocco</span>
           </div>
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} SkillBridge Morocco. Built with care.</p>
+          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} SkillLoom Morocco. Built with care.</p>
         </div>
       </footer>
     </div>
@@ -164,7 +164,7 @@ function LandingNav() {
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
             <span className="text-sm font-black">SB</span>
           </span>
-          <span className="text-[15px]">SkillBridge<span className="text-primary"> Morocco</span></span>
+          <span className="text-[15px]">SkillLoom<span className="text-primary"> Morocco</span></span>
         </Link>
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">

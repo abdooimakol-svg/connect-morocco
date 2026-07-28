@@ -13,7 +13,7 @@ import {
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
-    meta: [{ title: "Your profile · SkillBridge Morocco" }],
+    meta: [{ title: "Your profile · SkillLoom Morocco" }],
   }),
   component: ProfilePage,
 });

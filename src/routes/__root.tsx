@@ -77,9 +77,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SkillBridge Morocco" },
+      { title: "SkillLoom Morocco" },
       { name: "description", content: "Connect, learn and teach skills across Morocco." },
-      { property: "og:title", content: "SkillBridge Morocco" },
+      { property: "og:title", content: "SkillLoom Morocco" },
       { property: "og:description", content: "Connect, learn and teach skills across Morocco." },
       { property: "og:type", content: "website" },
       { name: "google-site-verification", content: "8g4qvGxmvYcZQVTb0iIAoE_gEu3_1ovN7EIIzMhUsO8" },
