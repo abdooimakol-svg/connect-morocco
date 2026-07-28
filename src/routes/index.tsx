@@ -146,7 +146,7 @@ function Landing() {
       <footer className="border-t border-border bg-card py-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-primary text-xs font-black text-primary-foreground">SB</span>
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-primary text-xs font-black text-primary-foreground">SL</span>
             SkillLoom<span className="text-primary">Morocco</span>
           </div>
           <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} SkillLoom Morocco. Built with care.</p>
@@ -162,7 +162,7 @@ function LandingNav() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2.5 font-semibold">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
-            <span className="text-sm font-black">SB</span>
+            <span className="text-sm font-black">SL</span>
           </span>
           <span className="text-[15px]">SkillLoom<span className="text-primary"> Morocco</span></span>
         </Link>

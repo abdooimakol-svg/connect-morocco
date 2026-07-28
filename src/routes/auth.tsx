@@ -69,7 +69,7 @@ function AuthPage() {
         <header className="flex items-center justify-between p-6">
           <Link to="/" className="flex items-center gap-2 font-semibold">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
-              <span className="text-sm font-black">SB</span>
+              <span className="text-sm font-black">SL</span>
             </span>
             <span>SkillLoom<span className="text-primary"> Morocco</span></span>
           </Link>
