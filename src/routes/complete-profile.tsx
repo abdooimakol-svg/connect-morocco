@@ -146,7 +146,7 @@ function CompleteProfile() {
             Step {step} of {STEPS.length}
           </Badge>
           <h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">Complete your profile</h1>
-          <p className="mt-2 text-muted-foreground">A verified profile unlocks every part of SkillBridge.</p>
+          <p className="mt-2 text-muted-foreground">A verified profile unlocks every part of SkillLoom.</p>
         </div>
 
         {/* Progress */}
@@ -297,7 +297,7 @@ function CompleteProfile() {
                     <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                     <div className="text-sm">
                       <div className="font-semibold text-foreground">Why we verify identity</div>
-                      <p className="mt-1 text-muted-foreground">SkillBridge keeps the community safe by ensuring every member is a real person. Your CIN is stored privately and used only for one-time verification.</p>
+                      <p className="mt-1 text-muted-foreground">SkillLoom keeps the community safe by ensuring every member is a real person. Your CIN is stored privately and used only for one-time verification.</p>
                     </div>
                   </div>
                 </div>

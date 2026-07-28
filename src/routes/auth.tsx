@@ -69,9 +69,9 @@ function AuthPage() {
         <header className="flex items-center justify-between p-6">
           <Link to="/" className="flex items-center gap-2 font-semibold">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
-              <span className="text-sm font-black">SB</span>
+              <span className="text-sm font-black">SL</span>
             </span>
-            <span>SkillBridge<span className="text-primary"> Morocco</span></span>
+            <span>SkillLoom<span className="text-primary"> Morocco</span></span>
           </Link>
           <Link to="/" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to home
@@ -179,7 +179,7 @@ function AuthPage() {
             </ul>
           </div>
           <div className="text-xs text-primary-foreground/70">
-            © {new Date().getFullYear()} SkillBridge Morocco
+            © {new Date().getFullYear()} SkillLoom Morocco
           </div>
         </div>
       </div>

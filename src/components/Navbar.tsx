@@ -37,10 +37,10 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
         <Link to="/" className="flex shrink-0 items-center gap-2.5 font-semibold">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary text-primary-foreground shadow-glow">
-            <span className="text-sm font-black tracking-tight">SB</span>
+            <span className="text-sm font-black tracking-tight">SL</span>
           </span>
           <span className="hidden text-[15px] sm:inline">
-            SkillBridge<span className="text-primary"> Morocco</span>
+            SkillLoom<span className="text-primary"> Morocco</span>
           </span>
         </Link>
 
