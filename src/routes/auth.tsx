@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,26 +55,13 @@ function AuthPage() {
   };
 
   const handleGoogle = async () => {
-    const host = window.location.hostname;
-    const oauthSupported =
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host.endsWith(".lovable.app") ||
-      host.endsWith(".lovable.dev");
-
-    if (!oauthSupported) {
-      toast.error(
-        "Google sign-in isn't available on this domain. Please use the official site or sign in with your email and password.",
-      );
-      return;
-    }
-
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (result.error) toast.error("Google sign-in failed");
-    if (!result.redirected && !result.error) navigate({ to: "/" });
+    if (error) toast.error(error.message || "Google sign-in failed");
   };
+
 
 
   return (

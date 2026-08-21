@@ -1,0 +1,26 @@
+# Netlify deployment for SkillLoom Morocco (TanStack Start SSR).
+# The app needs a server runtime for the LiveKit token/moderation endpoints,
+# so it deploys as a Netlify Function-backed SSR site, not a static SPA.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Tell Nitro to emit a Netlify build instead of the default Cloudflare one.
+  NITRO_PRESET = "netlify"
+
+# Required environment variables (set them in Netlify > Site settings > Environment variables):
+#
+#   Browser-visible (safe):
+#     VITE_SUPABASE_URL
+#     VITE_SUPABASE_PUBLISHABLE_KEY
+#
+#   Server-only (NEVER prefix these with VITE_):
+#     SUPABASE_URL
+#     SUPABASE_PUBLISHABLE_KEY
+#     SUPABASE_SERVICE_ROLE_KEY
+#     LIVEKIT_URL
+#     LIVEKIT_API_KEY
+#     LIVEKIT_API_SECRET
