@@ -18,6 +18,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsRoomIdRouteImport } from './routes/rooms.$roomId'
+import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -64,6 +65,11 @@ const RoomsRoomIdRoute = RoomsRoomIdRouteImport.update({
   path: '/rooms/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth_/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/rejected': typeof RejectedRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/rejected': typeof RejectedRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/rejected': typeof RejectedRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/auth_/callback': typeof AuthCallbackRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/rejected'
     | '/reset-password'
+    | '/auth/callback'
     | '/rooms/$roomId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/rejected'
     | '/reset-password'
+    | '/auth/callback'
     | '/rooms/$roomId'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/rejected'
     | '/reset-password'
+    | '/auth_/callback'
     | '/rooms/$roomId'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   RejectedRoute: typeof RejectedRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   RoomsRoomIdRoute: typeof RoomsRoomIdRoute
 }
 
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomsRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth_/callback': {
+      id: '/auth_/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   RejectedRoute: RejectedRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   RoomsRoomIdRoute: RoomsRoomIdRoute,
 }
 export const routeTree = rootRouteImport

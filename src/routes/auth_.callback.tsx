@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/auth/callback")({
+export const Route = createFileRoute("/auth_/callback")({
   ssr: false,
   component: AuthCallbackPage,
   head: () => ({
