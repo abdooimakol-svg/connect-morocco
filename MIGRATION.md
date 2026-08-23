@@ -137,3 +137,23 @@ would break the server endpoints.
 `src/integrations/lovable/index.ts` still exists on disk but is no longer
 imported by any application code, so it has no runtime effect. It is a
 generated file; deleting it is optional.
+
+## Migration executed (verified)
+
+Target project: `vlirkfqljiijsktqimfs`
+
+- Schema applied from `supabase/self-hosted/01_schema.sql`: 6 tables, 3 enums, 7 functions, all triggers, 20 RLS policies.
+- Storage buckets `avatars` and `cins` created (both private) with owner/admin policies.
+- Realtime publication enabled for `rooms`, `room_participants`, `room_messages`, `room_reactions`.
+- Accounts copied with original UUIDs: 9 users (+ email identities).
+- Rows copied: profiles 9, rooms 2, room_participants 2, room_messages 0, room_reactions 0, admin_audit_logs 6.
+
+### Remaining manual steps
+1. Password hashes cannot be exported from the source project — existing members must use
+   "Forgot password" (or Google sign-in) once on the new project.
+2. Storage files (avatars, CIN scans) were not copied; the buckets are empty. Users can re-upload,
+   or provide the target project's secret key to run a file copy.
+3. In Netlify, set: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`,
+   `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (target project) plus the LiveKit vars.
+4. In the target project's auth settings, enable Google and add the redirect URL
+   `https://<your-netlify-domain>/auth/callback`.
