@@ -134,9 +134,19 @@ would break the server endpoints.
 
 ## Remaining Lovable references
 
-`src/integrations/lovable/index.ts` still exists on disk but is no longer
-imported by any application code, so it has no runtime effect. It is a
-generated file; deleting it is optional.
+None. `src/integrations/lovable/` and the `@lovable.dev/cloud-auth-js`
+dependency were deleted. Authentication runs entirely through
+`supabase.auth` (email/password, password reset, and
+`signInWithOAuth({ provider: "google", redirectTo: origin + "/auth/callback" })`).
+
+### Auth configuration required in the target Supabase project
+
+- Auth > URL Configuration > Site URL: `https://skillloom.lovable.app`
+- Redirect URLs: `https://skillloom.lovable.app/auth/callback`,
+  plus your Netlify domain `/auth/callback` and `http://localhost:8080/auth/callback`.
+- Auth > Providers > Google: enabled, with the Google Cloud OAuth client's
+  Authorized redirect URI set to
+  `https://vlirkfqljiijsktqimfs.supabase.co/auth/v1/callback`.
 
 ## Migration executed (verified)
 
