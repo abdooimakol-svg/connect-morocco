@@ -134,14 +134,6 @@ function AuthPage() {
                 </TabsContent>
               </Tabs>
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                <div className="relative flex justify-center"><span className="bg-background px-3 text-xs uppercase tracking-wider text-muted-foreground">Or continue with</span></div>
-              </div>
-
-              <Button variant="outline" className="h-11 w-full rounded-xl text-base" onClick={handleGoogle}>
-                <GoogleIcon /> Continue with Google
-              </Button>
 
               <p className="mt-6 text-center text-xs text-muted-foreground">
                 By continuing you agree to our community values: respect, professionalism and verified identity.
