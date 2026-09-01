@@ -54,13 +54,6 @@ function AuthPage() {
     toast.success("Check your email for the reset link.");
   };
 
-  const handleGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) toast.error(error.message || "Google sign-in failed");
-  };
 
 
 
