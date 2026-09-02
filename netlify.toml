@@ -11,7 +11,8 @@
   # Tell Nitro to emit a Netlify build instead of the default Cloudflare one.
   NITRO_PRESET = "netlify"
 
-# Required environment variables (set them in Netlify > Site settings > Environment variables):
+# Required environment variables (set them in Netlify > Site settings > Environment variables).
+# They must point at the Lovable Cloud backend — see MIGRATION.md for the exact values.
 #
 #   Browser-visible (safe):
 #     VITE_SUPABASE_URL
@@ -20,7 +21,9 @@
 #   Server-only (NEVER prefix these with VITE_):
 #     SUPABASE_URL
 #     SUPABASE_PUBLISHABLE_KEY
-#     SUPABASE_SERVICE_ROLE_KEY
 #     LIVEKIT_URL
 #     LIVEKIT_API_KEY
 #     LIVEKIT_API_SECRET
+#
+# Note: SUPABASE_SERVICE_ROLE_KEY is not available for Lovable Cloud, so the
+# admin "Delete user" action only works on the Lovable-published site.
