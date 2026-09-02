@@ -27,16 +27,3 @@
 #
 # Note: SUPABASE_SERVICE_ROLE_KEY is not available for Lovable Cloud, so the
 # admin "Delete user" action only works on the Lovable-published site.
-
-#
-#   Browser-visible (safe):
-#     VITE_SUPABASE_URL
-#     VITE_SUPABASE_PUBLISHABLE_KEY
-#
-#   Server-only (NEVER prefix these with VITE_):
-#     SUPABASE_URL
-#     SUPABASE_PUBLISHABLE_KEY
-#     SUPABASE_SERVICE_ROLE_KEY
-#     LIVEKIT_URL
-#     LIVEKIT_API_KEY
-#     LIVEKIT_API_SECRET
