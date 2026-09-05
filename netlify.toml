@@ -7,7 +7,7 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   # Tell Nitro to emit a Netlify build instead of the default Cloudflare one.
   NITRO_PRESET = "netlify"
 
