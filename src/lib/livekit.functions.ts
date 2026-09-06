@@ -40,6 +40,18 @@ async function createRoomService() {
   return new RoomServiceClient(livekitApiUrl(), apiKey, apiSecret);
 }
 
+// Voice-server side effects are best-effort: if the deployment has no LiveKit
+// credentials (or the room is not live), moderation must still succeed in the
+// database instead of failing the whole action.
+async function bestEffort(run: () => Promise<void>) {
+  try {
+    await run();
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, reason: error instanceof Error ? error.message : "Voice action skipped" };
+  }
+}
+
 async function assertRoomHost(supabase: typeof import("@/integrations/supabase/client").supabase, userId: string, roomName: string) {
   const { data, error } = await supabase
     .from("rooms")
@@ -119,8 +131,8 @@ export const promoteLivekitParticipant = createServerFn({ method: "POST" })
   .inputValidator((input) => HostActionSchema.required({ targetIdentity: true }).parse(input))
   .handler(async ({ data, context }) => {
     await assertRoomModerator(context.supabase, context.userId, data.roomName);
-    const svc = await createRoomService();
-    try {
+    return bestEffort(async () => {
+      const svc = await createRoomService();
       await svc.updateParticipant(data.roomName, data.targetIdentity!, {
         permission: {
           canSubscribe: true,
@@ -129,10 +141,7 @@ export const promoteLivekitParticipant = createServerFn({ method: "POST" })
           canPublishSources: [2],
         },
       });
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reason: error instanceof Error ? error.message : "Participant is not connected" };
-    }
+    });
   });
 
 export const muteLivekitParticipant = createServerFn({ method: "POST" })
@@ -140,16 +149,13 @@ export const muteLivekitParticipant = createServerFn({ method: "POST" })
   .inputValidator((input) => HostActionSchema.required({ targetIdentity: true }).parse(input))
   .handler(async ({ data, context }) => {
     await assertRoomModerator(context.supabase, context.userId, data.roomName);
-    const svc = await createRoomService();
-    try {
+    return bestEffort(async () => {
+      const svc = await createRoomService();
       const participant = await svc.getParticipant(data.roomName, data.targetIdentity!);
       const micTrack = participant.tracks.find((track) => track.source === 2);
-      if (!micTrack) return { ok: false, reason: "Participant has no active microphone" };
+      if (!micTrack) throw new Error("Participant has no active microphone");
       await svc.mutePublishedTrack(data.roomName, data.targetIdentity!, micTrack.sid, true);
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reason: error instanceof Error ? error.message : "Participant is not connected" };
-    }
+    });
   });
 
 export const removeLivekitParticipant = createServerFn({ method: "POST" })
@@ -157,13 +163,10 @@ export const removeLivekitParticipant = createServerFn({ method: "POST" })
   .inputValidator((input) => HostActionSchema.required({ targetIdentity: true }).parse(input))
   .handler(async ({ data, context }) => {
     await assertRoomModerator(context.supabase, context.userId, data.roomName);
-    const svc = await createRoomService();
-    try {
+    return bestEffort(async () => {
+      const svc = await createRoomService();
       await svc.removeParticipant(data.roomName, data.targetIdentity!);
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reason: error instanceof Error ? error.message : "Participant is not connected" };
-    }
+    });
   });
 
 export const deleteLivekitRoom = createServerFn({ method: "POST" })
@@ -171,11 +174,8 @@ export const deleteLivekitRoom = createServerFn({ method: "POST" })
   .inputValidator((input) => HostActionSchema.parse(input))
   .handler(async ({ data, context }) => {
     await assertRoomHost(context.supabase, context.userId, data.roomName);
-    const svc = await createRoomService();
-    try {
+    return bestEffort(async () => {
+      const svc = await createRoomService();
       await svc.deleteRoom(data.roomName);
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, reason: error instanceof Error ? error.message : "LiveKit room was not active" };
-    }
+    });
   });
