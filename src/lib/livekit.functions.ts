@@ -12,9 +12,23 @@ const HostActionSchema = z.object({
   targetIdentity: z.string().min(1).optional(),
 });
 
+function missingLivekitVars() {
+  return (["LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"] as const).filter(
+    (name) => !process.env[name],
+  );
+}
+
+function livekitConfigError() {
+  const missing = missingLivekitVars();
+  // Names only — never the values.
+  return new Error(
+    `Voice service not configured on this deployment. Missing server environment variable(s): ${missing.join(", ")}`,
+  );
+}
+
 function livekitApiUrl() {
   const url = process.env.LIVEKIT_URL;
-  if (!url) throw new Error("LiveKit env vars not configured");
+  if (!url) throw livekitConfigError();
   return url.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
 }
 
@@ -22,7 +36,7 @@ async function createRoomService() {
   const { RoomServiceClient } = await import("livekit-server-sdk");
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
-  if (!apiKey || !apiSecret) throw new Error("LiveKit env vars not configured");
+  if (!apiKey || !apiSecret) throw livekitConfigError();
   return new RoomServiceClient(livekitApiUrl(), apiKey, apiSecret);
 }
 
