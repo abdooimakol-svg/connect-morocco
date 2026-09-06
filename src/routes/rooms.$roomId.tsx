@@ -423,7 +423,7 @@ function RoomPage() {
         .eq("id", p.id);
       if (error) throw error;
       // Give LiveKit publish permission
-      await promoteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      try { await promoteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } }); } catch { /* voice server optional */ }
       await reloadParticipants();
       toast.success("Promoted to moderator");
     } catch (error) {
@@ -459,7 +459,8 @@ function RoomPage() {
       .update({ role: "speaker", hand_raised: false } as never)
       .eq("id", p.id);
       if (error) throw error;
-      const livekitResult = await promoteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      let livekitResult: { ok: boolean } = { ok: false };
+      try { livekitResult = await promoteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } }); } catch { /* voice server optional */ }
       await reloadParticipants();
       toast.success(livekitResult.ok ? "Listener promoted to speaker" : "Speaker role saved — they will reconnect with mic access");
     } catch (error) {
@@ -480,7 +481,8 @@ function RoomPage() {
     if (!room) return;
     setActionBusy(`mute-${p.id}`);
     try {
-      const livekitResult = await muteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      let livekitResult: { ok: boolean } = { ok: false };
+      try { livekitResult = await muteParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } }); } catch { /* voice server optional */ }
       const { error } = await supabase.from("room_participants")
       .update({ role: "listener" } as never)
       .eq("id", p.id);
@@ -497,7 +499,7 @@ function RoomPage() {
     if (!room) return;
     setActionBusy(`remove-${p.id}`);
     try {
-      await removeParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } });
+      try { await removeParticipantFn({ data: { roomName: room.livekit_room, targetIdentity: p.user_id } }); } catch { /* voice server optional */ }
       const { error } = await supabase.from("room_participants").delete().eq("id", p.id);
       if (error) throw error;
       await reloadParticipants();
@@ -520,7 +522,7 @@ function RoomPage() {
     if (!room) return;
     setActionBusy("end-room");
     try {
-      await deleteRoomFn({ data: { roomName: room.livekit_room } });
+      try { await deleteRoomFn({ data: { roomName: room.livekit_room } }); } catch { /* voice server optional */ }
       // Wipe participants first (RLS allows host); trigger then deletes the room + related rows.
       await supabase.from("room_participants").delete().eq("room_id", room.id);
       // Belt & braces: explicitly delete in case there were no participants.
