@@ -82,7 +82,7 @@ export const getLivekitToken = createServerFn({ method: "POST" })
     const apiSecret = process.env.LIVEKIT_API_SECRET;
     const url = process.env.LIVEKIT_URL;
     if (!apiKey || !apiSecret || !url) {
-      throw new Error("LiveKit env vars not configured");
+      throw livekitConfigError();
     }
 
     // identity = user id, name = display
