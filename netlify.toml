@@ -21,9 +21,15 @@
 #   Server-only (NEVER prefix these with VITE_):
 #     SUPABASE_URL
 #     SUPABASE_PUBLISHABLE_KEY
-#     LIVEKIT_URL
-#     LIVEKIT_API_KEY
-#     LIVEKIT_API_SECRET
+#     LIVEKIT_URL          e.g. wss://<your-project>.livekit.cloud
+#     LIVEKIT_API_KEY      from LiveKit Cloud > Settings > Keys
+#     LIVEKIT_API_SECRET   from LiveKit Cloud > Settings > Keys
+#
+# Voice rooms: the browser never receives the LiveKit key/secret. The server
+# function getLivekitToken mints a short-lived join token and returns only
+# { token, url } to the client, so no VITE_LIVEKIT_* variable exists or is needed.
+# All three LIVEKIT_* variables must be scoped to "Functions" (or "All scopes")
+# in Netlify, otherwise voice rooms fail with "Voice service not configured".
 #
 # Note: SUPABASE_SERVICE_ROLE_KEY is not available for Lovable Cloud, so the
 # admin "Delete user" action only works on the Lovable-published site.
